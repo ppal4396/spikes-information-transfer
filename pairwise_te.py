@@ -1,5 +1,7 @@
-'''Transfer entropy (TE) calculation on generated spike train data using the 
+'''Transfer entropy (TE) calculation on spike train data using the 
 continuous-time TE estimator'''
+
+# Reference: https://github.com/jlizier/jidt
 
 from jpype import *
 import random
@@ -9,6 +11,7 @@ import numpy as np
 import json
 import sys
 import random
+import glob
 # ================================ config
 NUM_REPS = 2
 NUM_SPIKES = int(3e3)
@@ -18,22 +21,35 @@ jar_location = "/Users/preethompal/Documents/USYD/honours/jidt/infodynamics.jar"
 
 # ============================== library
 def read_spike_times(path):
-    '''read spike times from file given in <path>, return list'''
+    '''read spike times from file given in <path>, return numpy array'''
     spike_times = []
-    with open('mouse2probe8/mouse_2_probe_8layer_4_cell_2.txt', 'r') as f:
-        spike_times = [float(x.strip()) for x in f.readlines()]
+    with open(path, 'r') as f:
+        spike_times = np.asarray([float(x.strip()) for x in f.readlines()])
     return spike_times
-    
-def intervals_from_spike_times(spike_times):
-    '''get NUM_SPIKES intervals from some random point in <spike_times>, return
-       list
-    '''
-    intervals = []
-    random_spike = random.randint(NUM_SPIKES, len(spike_times))
-    for i in range(random_spike - 1, random_spike - (NUM_SPIKES + 1), -1):
-        intervals.append(spike_times[random_spike] - spike_times[i])
-    return intervals
-        
+
+def paths_to_data(probename='mouse2probe8'):
+    '''returns dictionary, keys are layer names, values are lists of file paths 
+    to data from each cell in that layer'''
+    data_paths = {
+        'Layer 2,3' : [],
+        'Layer 4' : [], 
+        'Layer 5' : [], 
+        'Layer 6' : []
+        } 
+    for cell in glob.glob(f"data/{probename}/*.txt"):
+        if 'layer_23' in cell:
+            data_paths['Layer 2,3'].append(cell)
+        elif 'layer_4' in cell:
+            data_paths['Layer 4'].append(cell)
+        elif 'layer_5' in cell:
+            data_paths['Layer 5'].append(cell)
+        elif 'layer_6' in cell:
+            data_paths['Layer 6'].append(cell)        
+    return data_paths
+
+def nice_cell_name(path):
+    ''' returns pretty string from file path to data for a cell'''
+    return f"Cell {path.split('_')[-1].split('.')[0]}"
 
 # ============================ main
 def main():
@@ -42,11 +58,8 @@ def main():
     startJVM('/usr/local/opt/openjdk/bin/java', 
              "-ea", 
              "-Djava.class.path=" + jar_location)
-
     package = "infodynamics.measures.spiking.integration"
-
     TECalculator = JPackage(package).TransferEntropyCalculatorSpikingIntegration
-
     te_calculator = TECalculator()
 
     # Number of nearest neighbours to search for in the full joint space
@@ -62,19 +75,20 @@ def main():
     # The past destination interspike intervals to consider (and associated 
     # property name and convenience length variable) The code assumes that the 
     # first interval is numbered 1, the next is numbered 2, etc
-        # i.e. the target history, encoded in intervals? 
-        # initialises destPastIntervals to {1, 2} ???
+        # property 'destPastIntervals' is initialised to {1, 2}
+        # I think:
+        # 1 and 2 respectively label interval from observation point to 
+        # target spike and an earlier observation point to target spike.
+        # i.e. we're using two intervals at a time when generating pdf of target
+        # spike occurring given target history?
     te_calculator.setProperty("DEST_PAST_INTERVALS", "1,2")
 
     # as previous, but for source
     te_calculator.setProperty("SOURCE_PAST_INTERVALS", "1,2")
 
-    #as previous, but for conditioned intervals.
-        #first one is target, second one is source??, or both are target
-    te_calculator.appendConditionalIntervals(JArray(JInt, 1)([1, 2]))
-    te_calculator.appendConditionalIntervals(JArray(JInt, 1)([1, 2]))
-
-    # i don't understand what any of the three above "intervals" are.
+    # You can use te_calculator.appendConditionalIntervals() for the above but
+    #for conditioned processes. 
+        # so I don't do this for pairwise TE, right?
 
     # Use jittered sampling approach
         # i.e. jitter the intervals when estimating probability densities
@@ -86,27 +100,52 @@ def main():
         # setting to zero looks like adds no jittering
     te_calculator.setProperty("JITTERED_SAMPLING_NOISE_LEVEL", "0")
 
-    print("mouse_2_layer_4_cell_1 to mouse_2_layer_4_cell_2")
+# ============================== WITHIN LAYERS
 
-    cell_one_path = 'mouse2probe8/mouse_2_probe_8layer_4_cell_1.txt'
-    cell_two_path = 'mouse2probe8/mouse_2_probe_8layer_4_cell_2.txt'
+    data_paths= paths_to_data(probename='mouse2probe8')
+    for layer in data_paths.keys():
+        print(f"Pairwise TEs between cells in {layer}:")
+        
+        for cell_a in data_paths[layer]:
+            for cell_b in data_paths[layer]:
+                if cell_a == cell_b: continue
+                
+                source_spikes = read_spike_times(cell_a)
+                dest_spikes = read_spike_times(cell_b)
+                
+                recording_length = min(len(source_spikes), len(dest_spikes))
+                    # recording lengths aren't always equal
+                        # verify this isn't because of a mistake I've made 
+                if recording_length < NUM_SPIKES:
+                    continue
+                    # recordings sometimes only hundreds of spikes long
+                        # verify this isn't because of a mistake I've made
+                
+                #choose a random 3000 consec spikes from source and destination
+                
+                rand_idx = random.randint(0, recording_length - NUM_SPIKES)
+                
+                source_obsv = source_spikes[rand_idx:rand_idx + NUM_SPIKES] 
+                dest_obsv = source_spikes[rand_idx:rand_idx + NUM_SPIKES]
+                
+                print(f"\t{nice_cell_name(cell_a)} to {nice_cell_name(cell_b)}")
+                
+                te_calculator.startAddObservations()
+                te_calculator.addObservations(
+                    JArray(JDouble, 1)(source_obsv),
+                    JArray(JDouble, 1)(dest_obsv)
+                )
+                te_calculator.finaliseAddObservations()
+                
+                result = te_calculator.computeAverageLocalOfObservations()
+                print(f"\t\tTE result {result:.4f} nats")
+                significance = te_calculator.computeSignificance(
+                    NUM_SURROGATES, result)
+                print(f"\t\t{significance.pValue}")
     
-    cell_one_spike_times = read_spike_times(cell_one_path)
-    cell_two_spike_times = read_spike_times(cell_two_path)
+    sys.exit()            
     
-    random_idx = random.randint(0, len(cell_one_spike_times) - NUM_SPIKES)
-    #source:
-    cell_one_obvs = cell_one_spike_times[random_idx:random_idx + NUM_SPIKES]
-    #target:
-    cell_two_obvs = cell_two_spike_times[random_idx:random_idx + NUM_SPIKES]
-    #not sure where cond arrays are meant to be. 
-    # target history and other source?
-    # will just use random for now.
-    condArray = NUM_SPIKES*np.random.random((2, NUM_SPIKES))
-    te_calculator.startAddObservations()
-    
-
-    sys.exit()
+# ============================== David's sample
 
     print("Independent Poisson Processes")
     results_poisson = np.zeros(NUM_REPS)
