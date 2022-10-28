@@ -1,6 +1,13 @@
 '''Transfer entropy (TE) calculation on spike train data using the 
 continuous-time TE estimator'''
 
+#TODO: full layer matrix.
+#TODO: write to results files.
+#TODO: check over everything; mistake why i'm getting non-sig te's only???
+#TODO: remove limit on target NUM_SPIKES , or allow a much larger range.
+#TODO: when doing average TE per spike: can just multiply result by length of 
+#      time in observation window then divide by number of spikes
+
 # Reference: https://github.com/jlizier/jidt
 
 from jpype import *
@@ -12,6 +19,7 @@ import json
 import sys
 import random
 import glob
+from scipy import stats
 # ================================ config
 NUM_REPS = 2
 NUM_SPIKES = int(3e3)
@@ -51,6 +59,10 @@ def nice_cell_name(path):
     ''' returns pretty string from file path to data for a cell'''
     return f"Cell {path.split('_')[-1].split('.')[0]}"
 
+def write_results_array(path, results):
+    with open(path, 'a') as f:
+        f.write(str(results) + '\n')
+
 # ============================ main
 def main():
     # Start the JVM (add the "-Xmx" option with say 1024M if you get crashes due
@@ -88,7 +100,7 @@ def main():
 
     # You can use te_calculator.appendConditionalIntervals() for the above but
     #for conditioned processes. 
-        # so I don't do this for pairwise TE, right?
+        # ignoring in pairwise TE.
 
     # Use jittered sampling approach
         # i.e. jitter the intervals when estimating probability densities
@@ -106,6 +118,9 @@ def main():
     for layer in data_paths.keys():
         print(f"Pairwise TEs between cells in {layer}:")
         
+        lay_a_to_lay_b_te_pretty_results = []
+        
+        tmp = 0
         for cell_a in data_paths[layer]:
             for cell_b in data_paths[layer]:
                 if cell_a == cell_b: continue
@@ -113,23 +128,35 @@ def main():
                 source_spikes = read_spike_times(cell_a)
                 dest_spikes = read_spike_times(cell_b)
                 
-                recording_length = min(len(source_spikes), len(dest_spikes))
-                    # recording lengths aren't always equal
-                        # verify this isn't because of a mistake I've made 
-                if recording_length < NUM_SPIKES:
-                    continue
+                dest_length = len(dest_spikes)
+
+                if dest_length < NUM_SPIKES: continue
                     # recordings sometimes only hundreds of spikes long
-                        # verify this isn't because of a mistake I've made
                 
-                #choose a random 3000 consec spikes from source and destination
+                #choose a random NUM_SPIKES consec spikes from destination
+                rand_idx = random.randint(0, dest_length - NUM_SPIKES)
+                dest_obsv = dest_spikes[rand_idx:rand_idx + NUM_SPIKES]
                 
-                rand_idx = random.randint(0, recording_length - NUM_SPIKES)
+                #choose source spikes within destination's observation window
+                start_time = dest_obsv[0]
+                end_time = dest_obsv[-1]
+                start_idx = None
+                stop_idx = None
+                for idx, time_stamp in enumerate(source_spikes):
+                    if not start_idx and time_stamp > start_time:
+                        start_idx = idx
+                    if start_idx and time_stamp >= end_time:
+                        stop_idx = idx
+                        break                                    
                 
-                source_obsv = source_spikes[rand_idx:rand_idx + NUM_SPIKES] 
-                dest_obsv = source_spikes[rand_idx:rand_idx + NUM_SPIKES]
+                if not (start_idx and stop_idx): continue            
+                if stop_idx - start_idx < 100: continue
+                
+                source_obsv = source_spikes[ start_idx : stop_idx ] 
                 
                 print(f"\t{nice_cell_name(cell_a)} to {nice_cell_name(cell_b)}")
                 
+                te_calculator.initialise()
                 te_calculator.startAddObservations()
                 te_calculator.addObservations(
                     JArray(JDouble, 1)(source_obsv),
@@ -142,7 +169,26 @@ def main():
                 significance = te_calculator.computeSignificance(
                     NUM_SURROGATES, result)
                 print(f"\t\t{significance.pValue}")
-    
+                
+                lay_a_to_lay_b_te_pretty_results.append(
+                    (result, significance.pValue))
+                tmp += 1
+                if tmp >= 4: break
+            if tmp >= 4: break
+        
+        #zero the negative transfer entropy results and compute average.
+        te_results = np.asarray(list(
+            map(
+                lambda x: 0 if x[0] < 0 else x[0], 
+                lay_a_to_lay_b_te_pretty_results)
+            ))
+        te_avg = np.mean(te_results)
+        
+        # count number of significant transfer entropies
+        num_sig_links = list(
+            map(lambda x: x[1], lay_a_to_lay_b_te_pretty_results)
+        ).count(0.0)
+        
     sys.exit()            
     
 # ============================== David's sample
@@ -176,3 +222,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
