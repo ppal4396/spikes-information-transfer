@@ -1,4 +1,5 @@
-source layer,destination layer,mean transfer entropy,standard deviation transfer entropy,number of significant linksLayer 2,3,Layer 2,3,0.007961197176688863,0.013789197999099011,0
+source layer,destination layer,mean transfer entropy,standard deviation transfer entropy,number of significant links
+Layer 2,3,Layer 2,3,0.007961197176688863,0.013789197999099011,0
 Layer 2,3,Layer 4,0.0,0.0,0
 Layer 2,3,Layer 5,0.0,0.0,0
 Layer 2,3,Layer 6,0.02725294951758757,0.047203493220571394,0
