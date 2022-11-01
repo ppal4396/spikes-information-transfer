@@ -1,8 +1,6 @@
 '''Transfer entropy (TE) calculation on spike train data using the 
 continuous-time TE estimator'''
 
-#TODO: full layer matrix.
-#TODO: write to results files.
 #TODO: check over everything; mistake why i'm getting non-sig te's only???
 #TODO: remove limit on target NUM_SPIKES , or allow a much larger range.
 #TODO: when doing average TE per spike: can just multiply result by length of 
@@ -115,84 +113,90 @@ def main():
 # ============================== WITHIN LAYERS
 
     data_paths= paths_to_data(probename='mouse2probe8')
-    for layer in data_paths.keys():
-        print(f"Pairwise TEs between cells in {layer}:")
-        
-        lay_a_to_lay_b_te_pretty_results = []
-        
-        tmp = 0
-        for cell_a in data_paths[layer]:
-            for cell_b in data_paths[layer]:
-                if cell_a == cell_b: continue
-                
-                source_spikes = read_spike_times(cell_a)
-                dest_spikes = read_spike_times(cell_b)
-                
-                dest_length = len(dest_spikes)
+    for layer_a in data_paths.keys():
+        for layer_b in data_paths.keys():
+            print(f"Pairwise TEs between cells from {layer_a} to {layer_b}:")
+            
+            lay_a_to_lay_b_te_pretty_results = []
+            
+            tmp = 0
+            for cell_a in data_paths[layer_a]:
+                for cell_b in data_paths[layer_b]:
+                    if cell_a == cell_b: continue
+                    
+                    source_spikes = read_spike_times(cell_a)
+                    dest_spikes = read_spike_times(cell_b)
+                    
+                    dest_length = len(dest_spikes)
 
-                if dest_length < NUM_SPIKES: continue
-                    # recordings sometimes only hundreds of spikes long
-                
-                #choose a random NUM_SPIKES consec spikes from destination
-                rand_idx = random.randint(0, dest_length - NUM_SPIKES)
-                dest_obsv = dest_spikes[rand_idx:rand_idx + NUM_SPIKES]
-                
-                #choose source spikes within destination's observation window
-                start_time = dest_obsv[0]
-                end_time = dest_obsv[-1]
-                start_idx = None
-                stop_idx = None
-                for idx, time_stamp in enumerate(source_spikes):
-                    if not start_idx and time_stamp > start_time:
-                        start_idx = idx
-                    if start_idx and time_stamp >= end_time:
-                        stop_idx = idx
-                        break                                    
-                
-                if not (start_idx and stop_idx): continue            
-                if stop_idx - start_idx < 100: continue
-                
-                source_obsv = source_spikes[ start_idx : stop_idx ] 
-                
-                print(f"\t{nice_cell_name(cell_a)} to {nice_cell_name(cell_b)}")
-                
-                te_calculator.initialise()
-                te_calculator.startAddObservations()
-                te_calculator.addObservations(
-                    JArray(JDouble, 1)(source_obsv),
-                    JArray(JDouble, 1)(dest_obsv)
-                )
-                te_calculator.finaliseAddObservations()
-                
-                result = te_calculator.computeAverageLocalOfObservations()
-                print(f"\t\tTE result {result:.4f} nats")
-                significance = te_calculator.computeSignificance(
-                    NUM_SURROGATES, result)
-                print(f"\t\t{significance.pValue}")
-                
-                lay_a_to_lay_b_te_pretty_results.append(
-                    (result, significance.pValue))
-                tmp += 1
+                    if dest_length < NUM_SPIKES: continue
+                        # recordings sometimes only hundreds of spikes long
+                    
+                    #choose a random NUM_SPIKES consec spikes from destination
+                    rand_idx = random.randint(0, dest_length - NUM_SPIKES)
+                    dest_obsv = dest_spikes[rand_idx:rand_idx + NUM_SPIKES]
+                    
+                    #choose source spikes within destination's observation window
+                    start_time = dest_obsv[0]
+                    end_time = dest_obsv[-1]
+                    start_idx = None
+                    stop_idx = None
+                    for idx, time_stamp in enumerate(source_spikes):
+                        if not start_idx and time_stamp > start_time:
+                            start_idx = idx
+                        if start_idx and time_stamp >= end_time:
+                            stop_idx = idx
+                            break                                    
+                    
+                    if not (start_idx and stop_idx): continue            
+                    if stop_idx - start_idx < 100: continue
+                    
+                    source_obsv = source_spikes[ start_idx : stop_idx ] 
+                    
+                    # print(f"\t{nice_cell_name(cell_a)} to {nice_cell_name(cell_b)}")
+                    
+                    te_calculator.initialise()
+                    te_calculator.startAddObservations()
+                    te_calculator.addObservations(
+                        JArray(JDouble, 1)(source_obsv),
+                        JArray(JDouble, 1)(dest_obsv)
+                    )
+                    te_calculator.finaliseAddObservations()
+                    
+                    result = te_calculator.computeAverageLocalOfObservations()
+                    print(f"\t\tTE result {result:.4f} nats")
+                    significance = te_calculator.computeSignificance(
+                        NUM_SURROGATES, result)
+                    print(f"\t\t{significance.pValue}")
+                    
+                    lay_a_to_lay_b_te_pretty_results.append(
+                        (result, significance.pValue))
+                    tmp += 1
+                    if tmp >= 4: break
                 if tmp >= 4: break
-            if tmp >= 4: break
+            
+            #zero the negative transfer entropy results and compute average.
+            te_results = np.asarray(list(
+                map(
+                    lambda x: 0 if x[0] < 0 else x[0], 
+                    lay_a_to_lay_b_te_pretty_results)
+                ))
+            te_avg = np.mean(te_results)
+            te_sd = np.std(te_results)
+            
+            # count number of significant transfer entropies
+            num_sig_links = list(
+                map(lambda x: x[1], lay_a_to_lay_b_te_pretty_results)
+            ).count(0.0)
+            
+            with open(f'results_demo/pairwise_summary.csv', 'a') as f:
+                line = f"{layer_a},{layer_b},{te_avg},{te_sd},{num_sig_links}\n"
+                f.write(line)
         
-        #zero the negative transfer entropy results and compute average.
-        te_results = np.asarray(list(
-            map(
-                lambda x: 0 if x[0] < 0 else x[0], 
-                lay_a_to_lay_b_te_pretty_results)
-            ))
-        te_avg = np.mean(te_results)
-        
-        # count number of significant transfer entropies
-        num_sig_links = list(
-            map(lambda x: x[1], lay_a_to_lay_b_te_pretty_results)
-        ).count(0.0)
-        
-    sys.exit()            
+if __name__ == '__main__':
+    main()
     
-# ============================== David's sample
-
+def david_sample():
     print("Independent Poisson Processes")
     results_poisson = np.zeros(NUM_REPS)
     for i in range(NUM_REPS):
@@ -219,8 +223,4 @@ def main():
         "Summary: mean ", np.mean(results_poisson), 
         " std dev ", np.std(results_poisson)
         )
-
-if __name__ == '__main__':
-    main()
-
 
