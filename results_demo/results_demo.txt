@@ -1,0 +1,144 @@
+Pairwise TEs between cells from Layer 2,3 to Layer 2,3:
+		TE result 0.0318 nats
+		1.0
+		TE result -0.1587 nats
+		1.0
+		TE result -0.0295 nats
+		1.0
+		TE result -0.0682 nats
+		1.0
+Pairwise TEs between cells from Layer 2,3 to Layer 4:
+		TE result -0.0577 nats
+		1.0
+		TE result -0.3677 nats
+		1.0
+		TE result -0.0572 nats
+		1.0
+		TE result -0.8813 nats
+		1.0
+Pairwise TEs between cells from Layer 2,3 to Layer 5:
+		TE result -0.1110 nats
+		1.0
+		TE result -0.1977 nats
+		1.0
+		TE result -0.3309 nats
+		1.0
+		TE result -0.1322 nats
+		1.0
+Pairwise TEs between cells from Layer 2,3 to Layer 6:
+		TE result -1.1923 nats
+		1.0
+		TE result -0.2988 nats
+		1.0
+		TE result 0.1090 nats
+		1.0
+		TE result -0.1139 nats
+		1.0
+Pairwise TEs between cells from Layer 4 to Layer 2,3:
+		TE result -0.8470 nats
+		1.0
+		TE result -0.0769 nats
+		1.0
+		TE result 0.1315 nats
+		1.0
+		TE result 0.1026 nats
+		1.0
+Pairwise TEs between cells from Layer 4 to Layer 4:
+		TE result -0.4199 nats
+		1.0
+		TE result -0.1010 nats
+		1.0
+		TE result -0.2345 nats
+		1.0
+		TE result -0.3069 nats
+		1.0
+Pairwise TEs between cells from Layer 4 to Layer 5:
+		TE result 0.0040 nats
+		1.0
+		TE result -0.2848 nats
+		1.0
+		TE result -0.1027 nats
+		1.0
+		TE result -0.2380 nats
+		1.0
+Pairwise TEs between cells from Layer 4 to Layer 6:
+		TE result -0.3702 nats
+		1.0
+		TE result -0.9304 nats
+		1.0
+		TE result -0.1309 nats
+		1.0
+		TE result -1.8310 nats
+		1.0
+Pairwise TEs between cells from Layer 5 to Layer 2,3:
+		TE result -3.0184 nats
+		1.0
+		TE result 0.0200 nats
+		1.0
+		TE result -0.2396 nats
+		1.0
+		TE result -0.8792 nats
+		1.0
+Pairwise TEs between cells from Layer 5 to Layer 4:
+		TE result -0.0973 nats
+		1.0
+		TE result -0.5003 nats
+		1.0
+		TE result -0.2324 nats
+		1.0
+		TE result -1.0838 nats
+		1.0
+Pairwise TEs between cells from Layer 5 to Layer 5:
+		TE result -0.1045 nats
+		1.0
+		TE result -0.3377 nats
+		1.0
+		TE result -0.1933 nats
+		1.0
+		TE result -0.3941 nats
+		1.0
+Pairwise TEs between cells from Layer 5 to Layer 6:
+		TE result -1.2266 nats
+		1.0
+		TE result -0.4022 nats
+		1.0
+		TE result -1.2232 nats
+		1.0
+		TE result -0.5929 nats
+		1.0
+Pairwise TEs between cells from Layer 6 to Layer 2,3:
+		TE result 1.5271 nats
+		1.0
+		TE result 0.5682 nats
+		1.0
+		TE result 2.2014 nats
+		1.0
+		TE result -1.0372 nats
+		1.0
+Pairwise TEs between cells from Layer 6 to Layer 4:
+		TE result 1.4850 nats
+		1.0
+		TE result 1.7046 nats
+		1.0
+		TE result 0.6331 nats
+		1.0
+		TE result 0.9893 nats
+		1.0
+Pairwise TEs between cells from Layer 6 to Layer 5:
+		TE result 0.4920 nats
+		1.0
+		TE result 0.6631 nats
+		1.0
+		TE result 0.2979 nats
+		1.0
+		TE result 0.0951 nats
+		1.0
+Pairwise TEs between cells from Layer 6 to Layer 6:
+		TE result 0.0349 nats
+		1.0
+		TE result 0.1378 nats
+		1.0
+		TE result 0.3084 nats
+		1.0
+		TE result -0.1716 nats
+		1.0
