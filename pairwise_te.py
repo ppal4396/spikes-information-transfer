@@ -115,11 +115,10 @@ def main():
     data_paths= paths_to_data(probename='mouse2probe8')
     for layer_a in data_paths.keys():
         for layer_b in data_paths.keys():
-            print(f"Pairwise TEs between cells from {layer_a} to {layer_b}:")
+            # print(f"Pairwise TEs between cells from {layer_a} to {layer_b}:")
             
             lay_a_to_lay_b_te_pretty_results = []
             
-            tmp = 0
             for cell_a in data_paths[layer_a]:
                 for cell_b in data_paths[layer_b]:
                     if cell_a == cell_b: continue
@@ -151,7 +150,13 @@ def main():
                     if not (start_idx and stop_idx): continue            
                     if stop_idx - start_idx < 100: continue
                     
-                    source_obsv = source_spikes[ start_idx : stop_idx ] 
+                    source_obsv = source_spikes[ start_idx : stop_idx ]
+                    # print(f"start_time: {start_time}, end_time: {end_time}")
+                    # print(f"\tdifference: {end_time - start_time}")
+                    # print("source stamps:\n", source_obsv)
+                    # print("destination stamps:\n", dest_obsv)
+                    # print("\tnum source spikes:", len(source_obsv), "num dest spikes:", len(dest_obsv))
+                    # sys.exit() 
                     
                     # print(f"\t{nice_cell_name(cell_a)} to {nice_cell_name(cell_b)}")
                     
@@ -164,16 +169,23 @@ def main():
                     te_calculator.finaliseAddObservations()
                     
                     result = te_calculator.computeAverageLocalOfObservations()
-                    print(f"\t\tTE result {result:.4f} nats")
+                    # print(f"\t\tTE result {result:.4f} nats")
                     significance = te_calculator.computeSignificance(
                         NUM_SURROGATES, result)
-                    print(f"\t\t{significance.pValue}")
+                    # print(f"\t\t{significance.pValue}")
+                    
+                    # print("mean of distribution")
+                    # print(significance.getMeanOfDistribution())
+                    # print("std of distribution")
+                    # print(significance.getStdOfDistribution())
+                    
                     
                     lay_a_to_lay_b_te_pretty_results.append(
                         (result, significance.pValue))
-                    tmp += 1
-                    if tmp >= 4: break
-                if tmp >= 4: break
+                    
+                    with open(f'results_demo/{layer_a}_to_{layer_b}.csv', 'a+') as f:
+                        line = f"{nice_cell_name(cell_a)},{nice_cell_name(cell_b)},{result:.4f},{significance.pValue}\n"
+                        f.write(line)
             
             #zero the negative transfer entropy results and compute average.
             te_results = np.asarray(list(
@@ -192,7 +204,7 @@ def main():
             with open(f'results_demo/pairwise_summary.csv', 'a') as f:
                 line = f"{layer_a},{layer_b},{te_avg},{te_sd},{num_sig_links}\n"
                 f.write(line)
-        
+         
 if __name__ == '__main__':
     main()
     
