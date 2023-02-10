@@ -2,9 +2,12 @@
 continuous-time TE estimator'''
 
 #TODO: check over everything; mistake why i'm getting non-sig te's only???
+    #TODO: re run with jittering set to false.
 #TODO: remove limit on target NUM_SPIKES , or allow a much larger range.
 #TODO: when doing average TE per spike: can just multiply result by length of 
 #      time in observation window then divide by number of spikes
+
+#Thought: is getting average local TE limited? what if there are random bursts?
 
 # Reference: https://github.com/jlizier/jidt
 
@@ -37,14 +40,14 @@ def paths_to_data(probename='mouse2probe8'):
     '''returns dictionary, keys are layer names, values are lists of file paths 
     to data from each cell in that layer'''
     data_paths = {
-        'Layer 2,3' : [],
+        'Layer 23' : [],
         'Layer 4' : [], 
         'Layer 5' : [], 
         'Layer 6' : []
         } 
     for cell in glob.glob(f"data/{probename}/*.txt"):
         if 'layer_23' in cell:
-            data_paths['Layer 2,3'].append(cell)
+            data_paths['Layer 23'].append(cell)
         elif 'layer_4' in cell:
             data_paths['Layer 4'].append(cell)
         elif 'layer_5' in cell:
@@ -56,10 +59,6 @@ def paths_to_data(probename='mouse2probe8'):
 def nice_cell_name(path):
     ''' returns pretty string from file path to data for a cell'''
     return f"Cell {path.split('_')[-1].split('.')[0]}"
-
-def write_results_array(path, results):
-    with open(path, 'a') as f:
-        f.write(str(results) + '\n')
 
 # ============================ main
 def main():
@@ -103,11 +102,11 @@ def main():
     # Use jittered sampling approach
         # i.e. jitter the intervals when estimating probability densities
         # useful for burstiness for some reason.
-    te_calculator.setProperty("DO_JITTERED_SAMPLING", "true")
+    te_calculator.setProperty("DO_JITTERED_SAMPLING", "false")
 
     # noise level can be used to scale a random value that will shift 
     #each interval
-        # setting to zero looks like adds no jittering
+    #do not use "true" above and 0 below!
     te_calculator.setProperty("JITTERED_SAMPLING_NOISE_LEVEL", "0")
 
 # ============================== WITHIN LAYERS
@@ -117,7 +116,7 @@ def main():
         for layer_b in data_paths.keys():
             # print(f"Pairwise TEs between cells from {layer_a} to {layer_b}:")
             
-            lay_a_to_lay_b_te_pretty_results = []
+            lay_a_to_lay_b_te_results = []
             
             for cell_a in data_paths[layer_a]:
                 for cell_b in data_paths[layer_b]:
@@ -156,7 +155,6 @@ def main():
                     # print("source stamps:\n", source_obsv)
                     # print("destination stamps:\n", dest_obsv)
                     # print("\tnum source spikes:", len(source_obsv), "num dest spikes:", len(dest_obsv))
-                    # sys.exit() 
                     
                     # print(f"\t{nice_cell_name(cell_a)} to {nice_cell_name(cell_b)}")
                     
@@ -174,13 +172,10 @@ def main():
                         NUM_SURROGATES, result)
                     # print(f"\t\t{significance.pValue}")
                     
-                    # print("mean of distribution")
-                    # print(significance.getMeanOfDistribution())
-                    # print("std of distribution")
-                    # print(significance.getStdOfDistribution())
+                    # print("mean of distribution:", significance.getMeanOfDistribution())
+                    # print("std of distribution:", significance.getStdOfDistribution())
                     
-                    
-                    lay_a_to_lay_b_te_pretty_results.append(
+                    lay_a_to_lay_b_te_results.append(
                         (result, significance.pValue))
                     
                     with open(f'results_demo/{layer_a}_to_{layer_b}.csv', 'a+') as f:
@@ -191,14 +186,14 @@ def main():
             te_results = np.asarray(list(
                 map(
                     lambda x: 0 if x[0] < 0 else x[0], 
-                    lay_a_to_lay_b_te_pretty_results)
+                    lay_a_to_lay_b_te_results)
                 ))
             te_avg = np.mean(te_results)
             te_sd = np.std(te_results)
             
             # count number of significant transfer entropies
             num_sig_links = list(
-                map(lambda x: x[1], lay_a_to_lay_b_te_pretty_results)
+                map(lambda x: x[1], lay_a_to_lay_b_te_results)
             ).count(0.0)
             
             with open(f'results_demo/pairwise_summary.csv', 'a') as f:
@@ -208,7 +203,7 @@ def main():
 if __name__ == '__main__':
     main()
     
-def david_sample():
+def sample_independent_poissons():
     print("Independent Poisson Processes")
     results_poisson = np.zeros(NUM_REPS)
     for i in range(NUM_REPS):
