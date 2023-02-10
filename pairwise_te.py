@@ -1,8 +1,6 @@
 '''Transfer entropy (TE) calculation on spike train data using the 
 continuous-time TE estimator'''
 
-#TODO: check over everything; mistake why i'm getting non-sig te's only???
-    #TODO: re run with jittering set to false.
 #TODO: remove limit on target NUM_SPIKES , or allow a much larger range.
 #TODO: when doing average TE per spike: can just multiply result by length of 
 #      time in observation window then divide by number of spikes
@@ -105,8 +103,8 @@ def main():
     te_calculator.setProperty("DO_JITTERED_SAMPLING", "false")
 
     # noise level can be used to scale a random value that will shift 
-    #each interval
-    #do not use "true" above and 0 below!
+    #each interval 
+    #do not set DO_JITTERED_SAMPLING to true with 0 here!
     te_calculator.setProperty("JITTERED_SAMPLING_NOISE_LEVEL", "0")
 
 # ============================== WITHIN LAYERS
