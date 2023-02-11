@@ -1,5 +1,4 @@
 source layer,destination layer,mean transfer entropy,standard deviation transfer entropy,number of significant links
-
 Layer 23,Layer 23,0.17147459786824332,0.5301267370742798,1
 Layer 23,Layer 4,0.23848898634694704,0.5605404082475107,5
 Layer 23,Layer 5,0.0614675001917351,0.19733467031279897,11

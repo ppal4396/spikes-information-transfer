@@ -176,7 +176,7 @@ def main():
                     lay_a_to_lay_b_te_results.append(
                         (result, significance.pValue))
                     
-                    with open(f'results_demo/{layer_a}_to_{layer_b}.csv', 'a+') as f:
+                    with open(f'results/{layer_a}_to_{layer_b}.csv', 'a+') as f:
                         line = f"{nice_cell_name(cell_a)},{nice_cell_name(cell_b)},{result:.4f},{significance.pValue}\n"
                         f.write(line)
             
@@ -194,7 +194,7 @@ def main():
                 map(lambda x: x[1], lay_a_to_lay_b_te_results)
             ).count(0.0)
             
-            with open(f'results_demo/pairwise_summary.csv', 'a') as f:
+            with open(f'results/pairwise_summary.csv', 'a') as f:
                 line = f"{layer_a},{layer_b},{te_avg},{te_sd},{num_sig_links}\n"
                 f.write(line)
          
