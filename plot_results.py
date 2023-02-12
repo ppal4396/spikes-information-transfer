@@ -8,7 +8,7 @@ import sys
 n_layers = 4
 
 sig_links_mat = np.zeros((n_layers,n_layers))
-with open('results/pairwise_summary.csv') as f:
+with open('results/mouse1probe3/pairwise_summary.csv') as f:
     header = f.readline()
     lines = f.readlines()
 i = 0
@@ -50,5 +50,5 @@ for i in range(n_layers):
 #rotate x tick labels
 plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
          rotation_mode="anchor")
-plt.savefig('results/pairwise_summary.png')
-print("saved in results/pairwise_summary.png")
+plt.savefig('results/mouse1probe3/pairwise_summary.png')
+print("saved in results/mouse1probe3/pairwise_summary.png")
