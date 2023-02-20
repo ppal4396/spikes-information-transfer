@@ -1,8 +1,8 @@
 '''Transfer entropy (TE) calculation on spike train data using the 
 continuous-time TE estimator'''
 
+#TODO: significance test for average TE per spike?
 #TODO: remove limit on target NUM_SPIKES , or allow a much larger range.
-
 #TODO: is getting average local TE limited? what if there are random bursts?
 # use jittered sampling approach?
 
@@ -63,6 +63,11 @@ def calculate_average_te_per_spike(result, obs_len, n_spikes):
    time in observation window then divide by number of spikes'''
     avg_te_per_spike = (result * obs_len) / n_spikes
     return avg_te_per_spike
+
+def calc_sig_average_te_per_spike(result, obs_len, surrogate_results):
+    '''Calculate average TE per spike for each surrogate TE result,
+       p-value is proportion that is greater than obtained result'''
+    #TODO: how do i find number of spikes in surrogate processes.
 
 # ============================ main
 def main():
