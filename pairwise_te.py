@@ -2,10 +2,9 @@
 continuous-time TE estimator'''
 
 #TODO: remove limit on target NUM_SPIKES , or allow a much larger range.
-#TODO: when doing average TE per spike: can just multiply result by length of 
-#      time in observation window then divide by number of spikes
 
-#Thought: is getting average local TE limited? what if there are random bursts?
+#TODO: is getting average local TE limited? what if there are random bursts?
+# use jittered sampling approach?
 
 # Reference: https://github.com/jlizier/jidt
 
@@ -25,6 +24,7 @@ NUM_SPIKES = int(3e3)
 NUM_OBSERVATIONS = 2
 NUM_SURROGATES = 10
 jar_location = "/Users/preethompal/Documents/USYD/honours/jidt/infodynamics.jar"
+write_results = False
 
 # ============================== library
 def read_spike_times(path):
@@ -57,6 +57,12 @@ def paths_to_data(probename='mouse2probe8'):
 def nice_cell_name(path):
     ''' returns pretty string from file path to data for a cell'''
     return f"Cell {path.split('_')[-1].split('.')[0]}"
+
+def calculate_average_te_per_spike(result, obs_len, n_spikes):
+'''Average TE per spike: multiply result by length of 
+   time in observation window then divide by number of spikes'''
+    avg_te_per_spike = (result * obs_len) / n_spikes
+    return avg_te_per_spike
 
 # ============================ main
 def main():
@@ -98,8 +104,10 @@ def main():
         # ignoring in pairwise TE.
 
     # Use jittered sampling approach
-        # i.e. jitter the intervals when estimating probability densities
-        # useful for burstiness for some reason.
+    # when choosing a random number of sample histories to estimate TE, 
+    #instead of laying these out uniformly; place them at existing target spikes, 
+    #then add uniform noise on the interval [-80 ms, 80 ms].
+    # useful for high density bursts.
     te_calculator.setProperty("DO_JITTERED_SAMPLING", "false")
 
     # noise level can be used to scale a random value that will shift 
@@ -169,15 +177,25 @@ def main():
                     significance = te_calculator.computeSignificance(
                         NUM_SURROGATES, result)
                     # print(f"\t\t{significance.pValue}")
-                    
                     # print("mean of distribution:", significance.getMeanOfDistribution())
                     # print("std of distribution:", significance.getStdOfDistribution())
                     
                     lay_a_to_lay_b_te_results.append(
                         (result, significance.pValue))
                     
-                    with open(f'results/mouse1probe3/{layer_a}_to_{layer_b}.csv', 'a+') as f:
-                        line = f"{nice_cell_name(cell_a)},{nice_cell_name(cell_b)},{result:.4f},{significance.pValue}\n"
+                    if write_results:
+                        with open(f'results/mouse1probe3/{layer_a}_to_{layer_b}.csv', 'a+') as f:
+                            line = f"{nice_cell_name(cell_a)},{nice_cell_name(cell_b)},{result:.4f},{significance.pValue}\n"
+                            f.write(line)
+                    
+                    avg_te_per_spike = calculate_average_te_per_spike(
+                        result,
+                        end_time - start_time,
+                        len(source_obsv)
+                        )
+
+                    with open(f'results/mouse1probe3/avg_per_spike/{layer_a}_to_{layer_b}.csv', 'a+') as f:
+                        line = f"{nice_cell_name(cell_a)},{nice_cell_name(cell_b)},{avg_te_per_spike:.4f}\n"
                         f.write(line)
             
             #zero the negative transfer entropy results and compute average.
@@ -194,9 +212,10 @@ def main():
                 map(lambda x: x[1], lay_a_to_lay_b_te_results)
             ).count(0.0)
             
-            with open(f'results/mouse1probe3/pairwise_summary.csv', 'a') as f:
-                line = f"{layer_a},{layer_b},{te_avg},{te_sd},{num_sig_links}\n"
-                f.write(line)
+            if write_results:
+                with open(f'results/mouse1probe3/pairwise_summary.csv', 'a') as f:
+                    line = f"{layer_a},{layer_b},{te_avg},{te_sd},{num_sig_links}\n"
+                    f.write(line)
          
 if __name__ == '__main__':
     main()
