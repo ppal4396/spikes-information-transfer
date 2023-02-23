@@ -1,11 +1,25 @@
 '''Transfer entropy (TE) calculation on spike train data using the 
 continuous-time TE estimator'''
 
+'''
+TODO
+need to look at not just number of significant pairs, but what this 
+is as a proportion.
+Visualise also the average TE rate, across all pairs.
+planning to add average TE per spike (averaged over source or target - try both).
+also will look at dropping the threshold of the number of spikes required to enter the analysis.
+'''
 #TODO: significance test for average TE per spike?
-#TODO: remove limit on target NUM_SPIKES , or allow a much larger range.
+    # - just do averag TE per spike on significant pairs.
+#TODO:
+    # run with NUM_SPIKES set to 3000
+    # 1000
+    # 500
+    # no limit 
 #TODO: is getting average local TE limited? what if there are random bursts?
 # use jittered sampling approach?
-
+# - can check for burstiness using histogram of ISIs (look up a numeric test, probably
+# exists)
 # Reference: https://github.com/jlizier/jidt
 
 from jpype import *
