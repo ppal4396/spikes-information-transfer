@@ -6,7 +6,7 @@ import numpy as np
 import sys
 import glob
 
-mouse = 'mouse2probe8'
+mouse = 'mouse1probe3'
 n_layers = 4
 
 sig_links_mat = np.zeros((n_layers,n_layers))
@@ -59,7 +59,7 @@ def plot_matrix_colour_map(mat, fname):
     #add text annotations
     for i in range(n_layers):
         for j in range(n_layers):
-            if mat[i,j] < 10:
+            if mat[i,j] < 0.33 * vmax:
                 colour = 'black'
             else:
                 colour = 'white'
@@ -72,7 +72,9 @@ def plot_matrix_colour_map(mat, fname):
     plt.savefig(f'results/{mouse}/{fname}.png')
     print(f"saved in results/{mouse}/{fname}.png")
 
-# plot_matrix_colour_map(n_links_mat, 'n_links')
+plot_matrix_colour_map(n_links_mat, 'n_links')
+
+plot_matrix_colour_map(sig_links_mat, 'n_sig_links')
 
 #plot proportion of significant links
 sig_links_mat_normalised  = np.zeros((n_layers, n_layers))
