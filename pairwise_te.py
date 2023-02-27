@@ -32,6 +32,8 @@ NUM_OBSERVATIONS = 2
 NUM_SURROGATES = 10
 jar_location = "/Users/preethompal/Documents/USYD/honours/jidt/infodynamics.jar"
 mouse = 'mouse1probe3'
+do_exact_num_spikes = False
+do_low_bound_num_spikes = True
 
 # ============================== library
 def read_spike_times(path):
@@ -143,9 +145,15 @@ def main():
                     if dest_length < NUM_SPIKES: continue
                         # recordings sometimes only hundreds of spikes long
                     
-                    #choose a random NUM_SPIKES consec spikes from destination
-                    rand_idx = random.randint(0, dest_length - NUM_SPIKES)
-                    dest_obsv = dest_spikes[rand_idx:rand_idx + NUM_SPIKES]
+                    if do_exact_num_spikes:
+                        #choose a random NUM_SPIKES consec spikes from dest
+                        rand_idx = random.randint(0, dest_length - NUM_SPIKES)
+                        dest_obsv = dest_spikes[rand_idx:rand_idx + NUM_SPIKES]
+                    
+                    elif do_low_bound_num_spikes:
+                        # as long as dest is over NUM_SPIKES long, observe all 
+                        # spikes
+                        dest_obsv = dest_spikes
                     
                     #choose source spikes within dest's obsv window
                     start_time = dest_obsv[0]
@@ -186,16 +194,18 @@ def main():
                     significance = te_calculator.computeSignificance(
                         NUM_SURROGATES, result)
 
+                    n_source_spikes = len(source_obsv)
                     avg_te_per_source_spike = calculate_average_te_per_spike(
                         result,
                         end_time - start_time,
-                        len(source_obsv)
+                        n_source_spikes
                         )
                     
+                    n_dest_spikes = len(dest_obsv)
                     avg_te_per_dest_spike = calculate_average_te_per_spike(
                         result,
                         end_time - start_time,
-                        len(dest_obsv)
+                        n_dest_spikes
                         )
                     
                     lay_a_to_lay_b_te_results.append(
@@ -207,8 +217,11 @@ def main():
                         line += f"{nice_cell_name(cell_b)},"
                         line += f"{result:.4f},"
                         line += f"{significance.pValue},"
+                        line += f"{n_source_spikes},"
                         line += f"{avg_te_per_source_spike},"
-                        line += f"{avg_te_per_dest_spike}\n"
+                        line += f"{n_dest_spikes},"
+                        line += f"{avg_te_per_dest_spike},"
+                        line += f"{end_time - start_time}\n"
                         f.write(line)
             
             #zero the negative transfer entropy results and compute avg & sd.
