@@ -1,26 +1,19 @@
 '''Transfer entropy (TE) calculation on spike train data using the 
 continuous-time TE estimator'''
+# Reference: https://github.com/jlizier/jidt
 
-'''
-TODO
-need to look at not just number of significant pairs, but what this 
-is as a proportion.
-Visualise also the average TE rate, across all pairs.
-planning to add average TE per spike (averaged over source or target - try both).
-also will look at dropping the threshold of the number of spikes required to enter the analysis.
-'''
-#TODO: significance test for average TE per spike?
-    # - just do averag TE per spike on significant pairs.
+#TODO add average TE per spike (averaged over source or target - try both).
+    #(just do averag TE per spike on significant pairs)
 #TODO:
     # run with NUM_SPIKES set to 3000
     # 1000
     # 500
-    # no limit 
+    # then change so that dest is at least NUM_SPIKES, but use all/most spikes
+    # available.
 #TODO: is getting average local TE limited? what if there are random bursts?
 # use jittered sampling approach?
-# - can check for burstiness using histogram of ISIs (look up a numeric test, probably
-# exists)
-# Reference: https://github.com/jlizier/jidt
+# - can check for burstiness using histogram of ISIs (look up a numeric test, 
+#probably exists
 
 from jpype import *
 import random
@@ -34,11 +27,11 @@ import glob
 from scipy import stats
 # ================================ config
 NUM_REPS = 2
-NUM_SPIKES = int(3e3)
+NUM_SPIKES = int(5e2)
 NUM_OBSERVATIONS = 2
 NUM_SURROGATES = 10
 jar_location = "/Users/preethompal/Documents/USYD/honours/jidt/infodynamics.jar"
-write_results = False
+mouse = 'mouse1probe3'
 
 # ============================== library
 def read_spike_times(path):
@@ -73,15 +66,10 @@ def nice_cell_name(path):
     return f"Cell {path.split('_')[-1].split('.')[0]}"
 
 def calculate_average_te_per_spike(result, obs_len, n_spikes):
-'''Average TE per spike: multiply result by length of 
-   time in observation window then divide by number of spikes'''
+    '''Average TE per spike: multiply result by length of 
+    time in observation window then divide by number of spikes'''
     avg_te_per_spike = (result * obs_len) / n_spikes
     return avg_te_per_spike
-
-def calc_sig_average_te_per_spike(result, obs_len, surrogate_results):
-    '''Calculate average TE per spike for each surrogate TE result,
-       p-value is proportion that is greater than obtained result'''
-    #TODO: how do i find number of spikes in surrogate processes.
 
 # ============================ main
 def main():
@@ -124,9 +112,9 @@ def main():
 
     # Use jittered sampling approach
     # when choosing a random number of sample histories to estimate TE, 
-    #instead of laying these out uniformly; place them at existing target spikes, 
-    #then add uniform noise on the interval [-80 ms, 80 ms].
-    # useful for high density bursts.
+    # instead of laying these out uniformly; place them at existing target 
+    # spikes, then add uniform noise on the interval [-80 ms, 80 ms].
+    # Useful for high density bursts.
     te_calculator.setProperty("DO_JITTERED_SAMPLING", "false")
 
     # noise level can be used to scale a random value that will shift 
@@ -136,7 +124,7 @@ def main():
 
 # ============================== WITHIN LAYERS
 
-    data_paths= paths_to_data(probename='mouse1probe3')
+    data_paths= paths_to_data(probename=mouse)
     for layer_a in data_paths.keys():
         for layer_b in data_paths.keys():
             # print(f"Pairwise TEs between cells from {layer_a} to {layer_b}:")
@@ -159,7 +147,7 @@ def main():
                     rand_idx = random.randint(0, dest_length - NUM_SPIKES)
                     dest_obsv = dest_spikes[rand_idx:rand_idx + NUM_SPIKES]
                     
-                    #choose source spikes within destination's observation window
+                    #choose source spikes within dest's obsv window
                     start_time = dest_obsv[0]
                     end_time = dest_obsv[-1]
                     start_idx = None
@@ -179,9 +167,11 @@ def main():
                     # print(f"\tdifference: {end_time - start_time}")
                     # print("source stamps:\n", source_obsv)
                     # print("destination stamps:\n", dest_obsv)
-                    # print("\tnum source spikes:", len(source_obsv), "num dest spikes:", len(dest_obsv))
+                    # print("\tnum source spikes:", len(source_obsv),
+                    # "num dest spikes:", len(dest_obsv))
                     
-                    # print(f"\t{nice_cell_name(cell_a)} to {nice_cell_name(cell_b)}")
+                    # print(
+                    # f"\t{nice_cell_name(cell_a)} to {nice_cell_name(cell_b)}")
                     
                     te_calculator.initialise()
                     te_calculator.startAddObservations()
@@ -195,46 +185,53 @@ def main():
                     # print(f"\t\tTE result {result:.4f} nats")
                     significance = te_calculator.computeSignificance(
                         NUM_SURROGATES, result)
-                    # print(f"\t\t{significance.pValue}")
-                    # print("mean of distribution:", significance.getMeanOfDistribution())
-                    # print("std of distribution:", significance.getStdOfDistribution())
-                    
-                    lay_a_to_lay_b_te_results.append(
-                        (result, significance.pValue))
-                    
-                    if write_results:
-                        with open(f'results/mouse1probe3/{layer_a}_to_{layer_b}.csv', 'a+') as f:
-                            line = f"{nice_cell_name(cell_a)},{nice_cell_name(cell_b)},{result:.4f},{significance.pValue}\n"
-                            f.write(line)
-                    
-                    avg_te_per_spike = calculate_average_te_per_spike(
+
+                    avg_te_per_source_spike = calculate_average_te_per_spike(
                         result,
                         end_time - start_time,
                         len(source_obsv)
                         )
-
-                    with open(f'results/mouse1probe3/avg_per_spike/{layer_a}_to_{layer_b}.csv', 'a+') as f:
-                        line = f"{nice_cell_name(cell_a)},{nice_cell_name(cell_b)},{avg_te_per_spike:.4f}\n"
+                    
+                    avg_te_per_dest_spike = calculate_average_te_per_spike(
+                        result,
+                        end_time - start_time,
+                        len(dest_obsv)
+                        )
+                    
+                    lay_a_to_lay_b_te_results.append(
+                        (result, significance.pValue))
+                    
+                    res_path = f'results/{mouse}/{layer_a}_to_{layer_b}.csv'
+                    with open(res_path, 'a+') as f:
+                        line = f"{nice_cell_name(cell_a)},"
+                        line += f"{nice_cell_name(cell_b)},"
+                        line += f"{result:.4f},"
+                        line += f"{significance.pValue},"
+                        line += f"{avg_te_per_source_spike},"
+                        line += f"{avg_te_per_dest_spike}\n"
                         f.write(line)
             
-            #zero the negative transfer entropy results and compute average.
-            te_results = np.asarray(list(
+            #zero the negative transfer entropy results and compute avg & sd.
+            te_zeroed_negs = np.asarray(list(
                 map(
                     lambda x: 0 if x[0] < 0 else x[0], 
                     lay_a_to_lay_b_te_results)
                 ))
-            te_avg = np.mean(te_results)
-            te_sd = np.std(te_results)
+            lay_a_to_lay_b_avg = np.mean(te_zeroed_negs)
+            lay_a_to_lay_b_sd = np.std(te_zeroed_negs)
             
             # count number of significant transfer entropies
-            num_sig_links = list(
+            n_sig_links = list(
                 map(lambda x: x[1], lay_a_to_lay_b_te_results)
             ).count(0.0)
             
-            if write_results:
-                with open(f'results/mouse1probe3/pairwise_summary.csv', 'a') as f:
-                    line = f"{layer_a},{layer_b},{te_avg},{te_sd},{num_sig_links}\n"
-                    f.write(line)
+            with open(f'results/{mouse}/pairwise_summary.csv', 'a+') as f:
+                line = f"{layer_a},"
+                line += f"{layer_b},"
+                line += f"{lay_a_to_lay_b_avg},"
+                line += f"{lay_a_to_lay_b_sd},"
+                line += f"{n_sig_links}\n"
+                f.write(line)
          
 if __name__ == '__main__':
     main()
