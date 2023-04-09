@@ -2,38 +2,34 @@
 continuous-time TE estimator'''
 # Reference: https://github.com/jlizier/jidt
 
-#TODO add average TE per spike (averaged over source or target - try both).
-    #(just do averag TE per spike on significant pairs)
 #TODO:
-    # run with NUM_SPIKES set to 3000
-    # 1000
-    # 500
-    # then change so that dest is at least NUM_SPIKES, but use all/most spikes
-    # available.
+    #all V1 probes:
+        #run exactly 3000 destination spikes on cluster
+        #run at least 500 on cluster.
+    #email brandon again for meeting
 #TODO: is getting average local TE limited? what if there are random bursts?
 # use jittered sampling approach?
 # - can check for burstiness using histogram of ISIs (look up a numeric test, 
 #probably exists
 
-from jpype import *
+from jpype import JPackage, startJVM, JArray, JDouble
+
 import random
 import math
 import os
 import numpy as np
 import json
 import sys
-import random
 import glob
-from scipy import stats
 # ================================ config
-NUM_REPS = 2
-NUM_SPIKES = int(5e2)
+NUM_SPIKES = int(3e3)
 NUM_OBSERVATIONS = 2
 NUM_SURROGATES = 10
 jar_location = "/Users/preethompal/Documents/USYD/honours/jidt/infodynamics.jar"
-mouse = 'mouse1probe3'
-do_exact_num_spikes = False
-do_low_bound_num_spikes = True
+java_location = "/usr/local/opt/openjdk/bin/java"
+mouse = 'mouse2probe8'
+do_exact_num_spikes = True
+do_low_bound_num_spikes = False
 
 # ============================== library
 def read_spike_times(path):
@@ -77,7 +73,7 @@ def calculate_average_te_per_spike(result, obs_len, n_spikes):
 def main():
     # Start the JVM (add the "-Xmx" option with say 1024M if you get crashes due
      #to not enough memory space)
-    startJVM('/usr/local/opt/openjdk/bin/java', 
+    startJVM(java_location, 
              "-ea", 
              "-Djava.class.path=" + jar_location)
     package = "infodynamics.measures.spiking.integration"
@@ -98,11 +94,10 @@ def main():
     # property name and convenience length variable) The code assumes that the 
     # first interval is numbered 1, the next is numbered 2, etc
         # property 'destPastIntervals' is initialised to {1, 2}
-        # I think:
         # 1 and 2 respectively label interval from observation point to 
         # target spike and an earlier observation point to target spike.
-        # i.e. we're using two intervals at a time when generating pdf of target
-        # spike occurring given target history?
+        # i.e using two intervals at a time when generating pdf of target
+        # spike occurring given target history.
     te_calculator.setProperty("DEST_PAST_INTERVALS", "1,2")
 
     # as previous, but for source
@@ -124,15 +119,25 @@ def main():
     #do not set DO_JITTERED_SAMPLING to true with 0 here!
     te_calculator.setProperty("JITTERED_SAMPLING_NOISE_LEVEL", "0")
 
-# ============================== WITHIN LAYERS
-
+# ============================== BETWEEN LAYERS
     data_paths= paths_to_data(probename=mouse)
-    for layer_a in data_paths.keys():
+
+    job_no = ''
+    source_layers_to_do = list(data_paths.keys())
+    if len(sys.argv) > 1:
+        if sys.argv[1] == 'lower':
+            source_layers_to_do = source_layers_to_do[:2]
+        elif sys.argv[1] == 'upper':
+            source_layers_to_do = source_layers_to_do[2:]
+        job_no = sys.argv[2]
+
+    for layer_a in source_layers_to_do:
         for layer_b in data_paths.keys():
             # print(f"Pairwise TEs between cells from {layer_a} to {layer_b}:")
             
             lay_a_to_lay_b_te_results = []
             
+            n_links = 0
             for cell_a in data_paths[layer_a]:
                 for cell_b in data_paths[layer_b]:
                     if cell_a == cell_b: continue
@@ -143,7 +148,6 @@ def main():
                     dest_length = len(dest_spikes)
 
                     if dest_length < NUM_SPIKES: continue
-                        # recordings sometimes only hundreds of spikes long
                     
                     if do_exact_num_spikes:
                         #choose a random NUM_SPIKES consec spikes from dest
@@ -163,12 +167,14 @@ def main():
                     for idx, time_stamp in enumerate(source_spikes):
                         if not start_idx and time_stamp > start_time:
                             start_idx = idx
-                        if start_idx and time_stamp >= end_time:
+                        if ((start_idx and time_stamp >= end_time) or
+                           (start_idx and idx == len(source_spikes) - 1)):
                             stop_idx = idx
                             break                                    
                     
                     if not (start_idx and stop_idx): continue            
                     if stop_idx - start_idx < 100: continue
+                        #i.e. atleast 100 spikes in source.
                     
                     source_obsv = source_spikes[ start_idx : stop_idx ]
                     # print(f"start_time: {start_time}, end_time: {end_time}")
@@ -180,7 +186,9 @@ def main():
                     
                     # print(
                     # f"\t{nice_cell_name(cell_a)} to {nice_cell_name(cell_b)}")
-                    
+
+                    n_links += 1
+
                     te_calculator.initialise()
                     te_calculator.startAddObservations()
                     te_calculator.addObservations(
@@ -208,6 +216,10 @@ def main():
                         n_dest_spikes
                         )
                     
+                    # bias correction by shifting result by mean of surrogates
+                    surrogate_mean = significance.getMeanOfDistribution()
+                    corrected_result = result - surrogate_mean
+                    
                     lay_a_to_lay_b_te_results.append(
                         (result, significance.pValue))
                     
@@ -216,6 +228,7 @@ def main():
                         line = f"{nice_cell_name(cell_a)},"
                         line += f"{nice_cell_name(cell_b)},"
                         line += f"{result:.4f},"
+                        line += f"{corrected_result:.4f}"
                         line += f"{significance.pValue},"
                         line += f"{n_source_spikes},"
                         line += f"{avg_te_per_source_spike},"
@@ -238,12 +251,13 @@ def main():
                 map(lambda x: x[1], lay_a_to_lay_b_te_results)
             ).count(0.0)
             
-            with open(f'results/{mouse}/pairwise_summary.csv', 'a+') as f:
+            with open(f'results/{mouse}/pairwise_summary{job_no}.csv','a+') as f:
                 line = f"{layer_a},"
                 line += f"{layer_b},"
                 line += f"{lay_a_to_lay_b_avg},"
                 line += f"{lay_a_to_lay_b_sd},"
-                line += f"{n_sig_links}\n"
+                line += f"{n_sig_links},"
+                line += f"{n_links}\n"
                 f.write(line)
          
 if __name__ == '__main__':
@@ -251,6 +265,7 @@ if __name__ == '__main__':
     
 def sample_independent_poissons():
     print("Independent Poisson Processes")
+    NUM_REPS = 2
     results_poisson = np.zeros(NUM_REPS)
     for i in range(NUM_REPS):
         te_calculator.startAddObservations()
