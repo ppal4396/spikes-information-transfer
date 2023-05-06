@@ -6,10 +6,10 @@ import numpy as np
 import sys
 import glob
 
-mouse = 'mouse2probe8/te_3000_dest_spikes'
+mouse = 'mouse2probe6'
 n_layers = 4
 
-
+#TODO: show in plots when no cells were recorded in the first place in certain layers.
 
 def plot_matrix_colour_map(mat, fname):
     ''' plot matrices as colour map. left axis is source, bottom axis is dest.
@@ -84,15 +84,15 @@ for filename in glob.glob(f'results/{mouse}/Layer*.csv'):
     n_links_mat[source_idx, dest_idx] = n_links
 
     for line_no, line in enumerate(lines):
-        te = float(line.split(',')[2])
-        te_per_src_spk = float(line.split(',')[5])
-        te_per_dest_spk = float(line.split(',')[7])
-        sig = line.split(',')[3].strip()
-        if sig == '0.0' and te < 0:
+        te = float(line.split(',')[3]) #corrected te, i.e. after minusing surrogate mean
+        te_per_src_spk = float(line.split(',')[7])
+        te_per_dest_spk = float(line.split(',')[9])
+        sig = float(line.split(',')[4].strip())
+        if sig < 0.05 and te < 0:
             print("Negative 'significant' transfer found.")
             print(filename, f"line {line_no+1}")
             print(line, '\n')
-        if sig != '0.0' or te < 0:
+        if sig > 0.05 or te < 0:
             te = 0
             te_per_src_spk = 0
             te_per_dest_spk = 0

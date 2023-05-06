@@ -1,11 +1,15 @@
-from pairwise_te import *
+import glob
+from jpype import JPackage, startJVM, JArray, JDouble, getDefaultJVMPath
+from pairwise_te import read_spike_times, paths_to_data, nice_cell_name, calculate_average_te_per_spike
+import random
+import numpy as np
+import sys
 
-'''TODO: 
+'''DONE: 
 MOUSE 2(Waksman)
 - probe 8 = right primary visual cortex (VISp)
         WITH
               probe 6 = right anterior visual area (VISa)
-
 
 - probe 3 = left primary visual cortex (VISp)
         WITH
@@ -14,28 +18,35 @@ MOUSE 2(Waksman)
             and LGd-co (core)
 '''
 
-'''TODO: 
+'''DONE: 
 MOUSE 1 (Krebs)
 - probes 3 = right primary visual cortex (VISp)
         WITH
               probe 7 = right primary visual cortex (VISp)
+            note asymmetry, could reflect columns to be homogenous processing
 
 - probes 4 = left primary visual cortex (VISp)
         WITH
               probe 8 = left primary visual cortex (VISp)
+              only some connectivity.
 '''
 
 # =========================== config
 
-NUM_SPIKES = int(3e3)
-NUM_OBSERVATIONS = 2
-NUM_SURROGATES = 10
+NUM_SPIKES = int(sys.argv[4])
+NUM_SURROGATES = 100
 jar_location = "/Users/preethompal/Documents/USYD/honours/jidt/infodynamics.jar"
 java_location = "/usr/local/opt/openjdk/bin/java"
-mouse1 = 'mouse2probe8'
-mouse2 = 'mouse2probe6'
-do_exact_num_spikes = False
-do_low_bound_num_spikes = True
+cluster = sys.argv[3] == "cluster"
+if cluster:
+    jar_location = "/home/ppal4396/jidt/infodynamics.jar"
+    java_location = getDefaultJVMPath()
+mouse1 = sys.argv[1]
+mouse2 = sys.argv[2]
+do_exact_num_spikes = True
+do_low_bound_num_spikes = False
+NUM_SPIKES_COPY = NUM_SPIKES
+P_VALUE = 0.05
 
 # ============================ main
 def main():
@@ -60,25 +71,29 @@ def main():
 
 
     job_no = ''
-    source_layers_to_do = list(data_paths.keys())
+    source_layers_to_do = list(data_paths1.keys())
     dest_layers_to_do = list(data_paths2.keys())
-    
-    if len(sys.argv) > 1:
-        if sys.argv[1] == 'lower':
+    if len(sys.argv) > 5:
+        if sys.argv[5] == 'lower':
             source_layers_to_do = source_layers_to_do[:2]
-        elif sys.argv[1] == 'upper':
+        elif sys.argv[4] == 'upper':
             source_layers_to_do = source_layers_to_do[2:]
-        job_no = sys.argv[2]
+        job_no = sys.argv[6]
 
+    source_layers_to_do = ['Layer 6'] #!!!
     for layer_a in source_layers_to_do:
-        for layer_b in data_paths2:
+        for layer_b in dest_layers_to_do:
+
+            if 'Thalamus' in layer_b:
+                NUM_SPIKES = int(3e3)
+            else:
+                NUM_SPIKES = NUM_SPIKES_COPY
             
             lay_a_to_lay_b_te_results = []
             
             n_links = 0
             for cell_a in data_paths1[layer_a]:
                 for cell_b in data_paths2[layer_b]:
-                    if cell_a == cell_b: continue
                     
                     source_spikes = read_spike_times(cell_a)
                     dest_spikes = read_spike_times(cell_b)
@@ -156,9 +171,9 @@ def main():
                         line = f"{nice_cell_name(cell_a)},"
                         line += f"{nice_cell_name(cell_b)},"
                         line += f"{result:.4f},"
-                        line += f"{corrected_result:.4f}"
+                        line += f"{corrected_result:.4f},"
                         line += f"{significance.pValue},"
-                        line += f"{surrogate_mean:.4f}"
+                        line += f"{surrogate_mean:.4f},"
                         line += f"{n_source_spikes},"
                         line += f"{avg_te_per_source_spike},"
                         line += f"{n_dest_spikes},"
@@ -176,11 +191,11 @@ def main():
             lay_a_to_lay_b_sd = np.std(te_zeroed_negs)
             
             # count number of significant transfer entropies
-            n_sig_links = list(
+            n_sig_links = (np.asarray(list(
                 map(lambda x: x[1], lay_a_to_lay_b_te_results)
-            ).count(0.0)
+            )) < P_VALUE).sum()
             
-            with open(f'results/{mouse1}_to_{mouse2}/pairwise_summary{job_no}.csv','a+') as f:
+            with open(f'results/{mouse1}_to_{mouse2}/pairwise_summary_6{job_no}.csv','a+') as f: #!!!
                 line = f"{layer_a},"
                 line += f"{layer_b},"
                 line += f"{lay_a_to_lay_b_avg},"

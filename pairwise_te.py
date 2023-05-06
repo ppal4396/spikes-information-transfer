@@ -3,16 +3,19 @@ continuous-time TE estimator'''
 # Reference: https://github.com/jlizier/jidt
 
 #TODO:
-    #all V1 probes:
-        #run exactly 3000 destination spikes on cluster
-        #run at least 500 on cluster.
-    #email brandon again for meeting
-#TODO: is getting average local TE limited? what if there are random bursts?
-# use jittered sampling approach?
-# - can check for burstiness using histogram of ISIs (look up a numeric test, 
-#probably exists
+    #do same time same mouse for association probes.
+    # run again with DEST_PAST_INTERVALS set to 10 embeddings? 
+        #  60 hours maybe
 
-from jpype import JPackage, startJVM, JArray, JDouble
+'''
+DONE
+all probes:
+    low bound 500 takes too long.
+    did exact NUM_SPIKES destination spikes on cluster, see dataset description for different values.
+        completes < 40 hrs, with 100 surrogates.
+'''
+
+from jpype import JPackage, startJVM, JArray, JDouble, getDefaultJVMPath
 
 import random
 import math
@@ -22,14 +25,24 @@ import json
 import sys
 import glob
 # ================================ config
-NUM_SPIKES = int(3e3)
-NUM_OBSERVATIONS = 2
-NUM_SURROGATES = 10
-jar_location = "/Users/preethompal/Documents/USYD/honours/jidt/infodynamics.jar"
-java_location = "/usr/local/opt/openjdk/bin/java"
-mouse = 'mouse2probe8'
-do_exact_num_spikes = True
-do_low_bound_num_spikes = False
+if __name__ == '__main__':
+    if len(sys.argv) < 5:
+        print("usage: python pairwise_te.py <mouse> <exact|low_bound_num_spikes> <cluster|local> <NUM_SPIKES>")
+        sys.exit(-1)
+    cluster = sys.argv[3] == "cluster"
+    NUM_SPIKES = int(sys.argv[4])
+    NUM_OBSERVATIONS = 2
+    NUM_SURROGATES = 100
+    jar_location = "/Users/preethompal/Documents/USYD/honours/jidt/infodynamics.jar"
+    java_location = "/usr/local/opt/openjdk/bin/java"
+    if cluster:
+        jar_location = "/home/ppal4396/jidt/infodynamics.jar"
+        java_location = getDefaultJVMPath()
+    mouse = sys.argv[1]
+    do_exact_num_spikes = sys.argv[2] == "exact_num_spikes"
+    do_low_bound_num_spikes = sys.argv[2] == "low_bound_num_spikes"
+    NUM_SPIKES_COPY = NUM_SPIKES #save NUM_SPIKES since I'm hardcoding thalamus NUM_SPIKES
+    P_VALUE = 0.05
 
 # ============================== library
 def read_spike_times(path):
@@ -47,7 +60,10 @@ def paths_to_data(probename='mouse2probe8'):
         'Layer 4' : [], 
         'Layer 5' : [], 
         'Layer 6' : []
-        } 
+        }
+    if probename == 'mouse2probe7':
+        data_paths['Thalamus co'] = []
+        data_paths['Thalamus sh'] = [] 
     for cell in glob.glob(f"data/{probename}/*.txt"):
         if 'layer_23' in cell:
             data_paths['Layer 23'].append(cell)
@@ -56,7 +72,12 @@ def paths_to_data(probename='mouse2probe8'):
         elif 'layer_5' in cell:
             data_paths['Layer 5'].append(cell)
         elif 'layer_6' in cell:
-            data_paths['Layer 6'].append(cell)        
+            data_paths['Layer 6'].append(cell)
+    if probename == 'mouse2probe7':
+        for cell in glob.glob(f'data/{probename}/thalamus/*co_cell*.txt'):
+            data_paths['Thalamus co'].append(cell)
+        for cell in glob.glob(f'data/{probename}/thalamus/*sh_cell*.txt'):
+            data_paths['Thalamus sh'].append(cell)
     return data_paths
 
 def nice_cell_name(path):
@@ -96,11 +117,11 @@ def main():
         # property 'destPastIntervals' is initialised to {1, 2}
         # 1 and 2 respectively label interval from observation point to 
         # target spike and an earlier observation point to target spike.
-        # i.e using two intervals at a time when generating pdf of target
-        # spike occurring given target history.
+        # i.e target history being conditioned on, is two intervals long.
     te_calculator.setProperty("DEST_PAST_INTERVALS", "1,2")
 
-    # as previous, but for source
+    # source history (which is included in TE formulation as a rate) is two
+    #intervals long.
     te_calculator.setProperty("SOURCE_PAST_INTERVALS", "1,2")
 
     # You can use te_calculator.appendConditionalIntervals() for the above but
@@ -124,16 +145,23 @@ def main():
 
     job_no = ''
     source_layers_to_do = list(data_paths.keys())
-    if len(sys.argv) > 1:
-        if sys.argv[1] == 'lower':
+    if len(sys.argv) > 5:
+        if sys.argv[5] == 'lower':
             source_layers_to_do = source_layers_to_do[:2]
-        elif sys.argv[1] == 'upper':
+        elif sys.argv[4] == 'upper':
             source_layers_to_do = source_layers_to_do[2:]
-        job_no = sys.argv[2]
+        job_no = sys.argv[6]
+
+    dest_layers_to_do = list(data_paths.keys())
 
     for layer_a in source_layers_to_do:
-        for layer_b in data_paths.keys():
+        for layer_b in dest_layers_to_do:
             # print(f"Pairwise TEs between cells from {layer_a} to {layer_b}:")
+
+            if 'Thalamus' in layer_b:
+                NUM_SPIKES = int(3e3)
+            else:
+                NUM_SPIKES = NUM_SPIKES_COPY
             
             lay_a_to_lay_b_te_results = []
             
@@ -228,8 +256,9 @@ def main():
                         line = f"{nice_cell_name(cell_a)},"
                         line += f"{nice_cell_name(cell_b)},"
                         line += f"{result:.4f},"
-                        line += f"{corrected_result:.4f}"
+                        line += f"{corrected_result:.4f},"
                         line += f"{significance.pValue},"
+                        line += f"{surrogate_mean:.4f},"
                         line += f"{n_source_spikes},"
                         line += f"{avg_te_per_source_spike},"
                         line += f"{n_dest_spikes},"
@@ -247,9 +276,9 @@ def main():
             lay_a_to_lay_b_sd = np.std(te_zeroed_negs)
             
             # count number of significant transfer entropies
-            n_sig_links = list(
+            n_sig_links = (np.asarray(list(
                 map(lambda x: x[1], lay_a_to_lay_b_te_results)
-            ).count(0.0)
+            )) < P_VALUE).sum()
             
             with open(f'results/{mouse}/pairwise_summary{job_no}.csv','a+') as f:
                 line = f"{layer_a},"
