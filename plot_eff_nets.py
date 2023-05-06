@@ -10,6 +10,7 @@ def layer_name(target_label):
     return 'Layer ' + (target_label.split('_')[1])
 
 mouse = 'mouse2probe8'
+repeat_num = 0
 
 #target_labels contains layer and cell number. index is same index as used during inference.
 target_labels = None
@@ -32,7 +33,7 @@ for layer in nodes.keys():
     network.add_nodes_from(nodes[layer], layer=layer)
 
 #read through pickled results and generate graph edges
-for path in glob.glob(f'results/{mouse}/effective_inference/*.pk'):
+for path in glob.glob(f'results/{mouse}/effective_inference/repeat_{repeat_num}/*.pk'):
     cond_set = None
     # surrogate_vals_at_each_round = None
     # TE_vals_at_each_round = None
@@ -89,4 +90,4 @@ for n in range(min(node_sizes),max(node_sizes)+1, 150):
     plt.plot([], [], 'bo', markersize = sqrt(n), label = f"{int((n-25) / 50)}")
 plt.legend(labelspacing = 5, loc='center', bbox_to_anchor=(1, 0.5), frameon = False)
 
-plt.savefig(f'results/{mouse}/effective_inference/effective_network.png')
+plt.savefig(f'results/{mouse}/effective_inference/effective_network_{repeat_num}.png')

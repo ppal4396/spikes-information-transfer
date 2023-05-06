@@ -4,11 +4,14 @@
 
 '''
 NET_TYPE mouse2probe8 REPEAT_NUM 0:
-        MAX_NUM_SECOND_INTERVALS=3 for target 8, 37, 51. (waiting for target 51)
-
+        MAX_NUM_SECOND_INTERVALS=3 for target 8, 37, 51. (waiting for target 51 result)
+        note: lost all logs for this repeat. accidentally overwrote. 
+        #but I did check over a few of them and they looked fine.
+        # and I have the job errors (which are empty)
 NET_TYPE mouse2probe8 REPEAT_NUM 1:
+        (waiting for all)
         MAX_NUM_SECOND_INTERVALS set to pos inf (i.e. ignored)
-        bonferoni correction added.
+        bonferroni correction added.
 '''
 
 '''
@@ -17,7 +20,6 @@ TODO
     - between v1 probes next; mouse1probe3 & mouse1probe7
     - v1 and thalamus last. mouse2probe3 & mouse2probe7
 '''
-
 from jpype import *
 import random
 import math
@@ -51,7 +53,7 @@ MAX_NUM_SECOND_INTERVALS = float('inf') #ignoring this limit.
 MAX_NUM_TARGET_SPIKES = int(num_spikes_string)
 # The spikes file with the below name is expected to contain a single pickled Python list. This list contains numpy arrays. Each
 # numpy array contains the spike times of each candidate target.
-SPIKES_FILE_NAME = "data/spikes_LIF_" + net_type_name + "_" + repeat_num_string + ".pk"
+SPIKES_FILE_NAME = "data/spikes_LIF_" + net_type_name + ".pk"
 
 OUTPUT_FILE_PREFIX = "results/inferred_sources_target_2_" + net_type_name + "_" + num_spikes_string + "_" + repeat_num_string + "_" + target_index_string
 LOG_FILE_NAME = "logs/" + net_type_name + "_" + num_spikes_string + "_" + repeat_num_string +  "_" + target_index_string + ".log"
@@ -206,7 +208,7 @@ def main():
             # ------- bonferroni correction ------------------------------------
             bonferroni_p_level = P_LEVEL / (len(samples_from_max_dist) - n_skipped_sources)
             # ------------------------------------------------------------------
-            if p_val <= bonferroni_p_level: #compare to P_LEVEL to remove bonferonni
+            if p_val <= bonferroni_p_level: #compare to P_LEVEL to remove bonferroni
                     #if source already in cond_set, add interval to list.
                     if (next_interval_for_each_candidate[index_of_max_candidate, 0]) in cond_set:
                             cond_set[next_interval_for_each_candidate[index_of_max_candidate, 0]].append(next_interval_for_each_candidate[index_of_max_candidate, 1])
