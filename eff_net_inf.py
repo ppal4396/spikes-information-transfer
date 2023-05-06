@@ -108,7 +108,7 @@ def main():
            spikes[source_index] = spikes[source_index][
                   (spikes[source_index] > spikes[target_index][0]) & (spikes[source_index] < spikes[target_index][-1])
                   ]
-    print("Number of target spikes: ", len(spikes[target_index]))
+    print("Number of target spikes: ", len(spikes[target_index])) #can be [0, MAX_NUM_TARGET_SPIKES]
     print(f"First target spike: {spikes[target_index][0]}")
     print(f"Last target spike: {spikes[target_index][-1]}")
 
@@ -161,11 +161,13 @@ def main():
             debiased_TE_vals = -1 * np.ones(next_interval_for_each_candidate.shape[0]) #for each source right now.
             surrogate_vals = -1 * np.ones((next_interval_for_each_candidate.shape[0], NUM_SURROGATES_PER_TE_VAL)) #for each source right now
             debiased_surrogate_vals = 1 - np.ones((next_interval_for_each_candidate.shape[0], NUM_SURROGATES_PER_TE_VAL)) #for each source right now
+            n_skipped_sources = 0
             #iterate through every source
             for i in range(next_interval_for_each_candidate.shape[0]):
                     #if this source has less than 10 spikes, skip.
                     if len(spikes[next_interval_for_each_candidate[i, 0]]) < 10:
                             print(f"Skipping source {next_interval_for_each_candidate[i, 0]} since it has less than 10 spikes.")
+                            n_skipped_sources += 1
                             continue
                     teCalc.startAddObservations()
                     #check TE from one source interval to target state, in context of (embedded target past + conditioning set intervals)
@@ -201,7 +203,10 @@ def main():
             print("\nMaximum candidate is source", next_interval_for_each_candidate[index_of_max_candidate, 0],
                 "interval", next_interval_for_each_candidate[index_of_max_candidate, 1])
             print("p: ", p_val)
-            if p_val <= P_LEVEL:
+            # ------- bonferroni correction ------------------------------------
+            bonferroni_p_level = P_LEVEL / (len(samples_from_max_dist) - n_skipped_sources)
+            # ------------------------------------------------------------------
+            if p_val <= bonferroni_p_level: #compare to P_LEVEL to remove bonferonni
                     #if source already in cond_set, add interval to list.
                     if (next_interval_for_each_candidate[index_of_max_candidate, 0]) in cond_set:
                             cond_set[next_interval_for_each_candidate[index_of_max_candidate, 0]].append(next_interval_for_each_candidate[index_of_max_candidate, 1])
