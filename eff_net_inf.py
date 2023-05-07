@@ -9,7 +9,7 @@ NET_TYPE mouse2probe8 REPEAT_NUM 0:
         #but I did check over a few of them and they looked fine.
         # and I have the job errors (which are empty)
 NET_TYPE mouse2probe8 REPEAT_NUM 1:
-        (waiting for all)
+        deleted. we don't need a bonferroni correction.
         MAX_NUM_SECOND_INTERVALS set to pos inf (i.e. ignored)
         bonferroni correction added.
 '''
@@ -205,10 +205,7 @@ def main():
             print("\nMaximum candidate is source", next_interval_for_each_candidate[index_of_max_candidate, 0],
                 "interval", next_interval_for_each_candidate[index_of_max_candidate, 1])
             print("p: ", p_val)
-            # ------- bonferroni correction ------------------------------------
-            bonferroni_p_level = P_LEVEL / (len(samples_from_max_dist) - n_skipped_sources)
-            # ------------------------------------------------------------------
-            if p_val <= bonferroni_p_level: #compare to P_LEVEL to remove bonferroni
+            if p_val <= P_LEVEL:
                     #if source already in cond_set, add interval to list.
                     if (next_interval_for_each_candidate[index_of_max_candidate, 0]) in cond_set:
                             cond_set[next_interval_for_each_candidate[index_of_max_candidate, 0]].append(next_interval_for_each_candidate[index_of_max_candidate, 1])

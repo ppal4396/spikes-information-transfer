@@ -80,7 +80,6 @@ def main():
             source_layers_to_do = source_layers_to_do[2:]
         job_no = sys.argv[6]
 
-    source_layers_to_do = ['Layer 6'] #!!!
     for layer_a in source_layers_to_do:
         for layer_b in dest_layers_to_do:
 
@@ -195,7 +194,7 @@ def main():
                 map(lambda x: x[1], lay_a_to_lay_b_te_results)
             )) < P_VALUE).sum()
             
-            with open(f'results/{mouse1}_to_{mouse2}/pairwise_summary_6{job_no}.csv','a+') as f: #!!!
+            with open(f'results/{mouse1}_to_{mouse2}/pairwise_summary{job_no}.csv','a+') as f:
                 line = f"{layer_a},"
                 line += f"{layer_b},"
                 line += f"{lay_a_to_lay_b_avg},"
