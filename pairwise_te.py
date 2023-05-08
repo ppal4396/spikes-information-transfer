@@ -292,32 +292,3 @@ def main():
 if __name__ == '__main__':
     main()
     
-def sample_independent_poissons():
-    print("Independent Poisson Processes")
-    NUM_REPS = 2
-    results_poisson = np.zeros(NUM_REPS)
-    for i in range(NUM_REPS):
-        te_calculator.startAddObservations()
-        for j in range(NUM_OBSERVATIONS):
-            sourceArray = NUM_SPIKES*np.random.random(NUM_SPIKES) 
-            #random.random() returns between 0 and 1
-            sourceArray.sort()
-            destArray = NUM_SPIKES*np.random.random(NUM_SPIKES)
-            destArray.sort()
-            condArray = NUM_SPIKES*np.random.random((2, NUM_SPIKES))
-            condArray.sort(axis = 1)
-            te_calculator.addObservations(
-                JArray(JDouble, 1)(sourceArray), 
-                JArray(JDouble, 1)(destArray), 
-                JArray(JDouble, 2)(condArray))
-        te_calculator.finaliseAddObservations();
-        result = te_calculator.computeAverageLocalOfObservations()
-        print("TE result %.4f nats" % (result,))
-        sig = te_calculator.computeSignificance(NUM_SURROGATES, result)
-        print(sig.pValue)
-        results_poisson[i] = result
-    print(
-        "Summary: mean ", np.mean(results_poisson), 
-        " std dev ", np.std(results_poisson)
-        )
-

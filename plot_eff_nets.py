@@ -140,10 +140,26 @@ def edge_count_matrix(nodes, edge_info, target_labels):
         target_layer = layer_name(target_labels[target_index])
 
         mat[ layer_name_to_matrix_index(source_layer, nodes) , layer_name_to_matrix_index(target_layer, nodes)] += 1
-
+    
     return mat
 
+def proportion_matrix(nodes, edge_count_mat):
+    '''Returns matrix containing proportion of significant edges to possible edges across layers
+    Layer 23
+    Layer  4
+    Layer  5
+    Layer  6
+       Layer 23  4   5   6'''
+    mat = np.zeros((4, 4))
+    
+    for layer_a in nodes.keys():
+        for layer_b in nodes.keys():
+            n_possible_edges = len(nodes[layer_a]) * len(nodes[layer_b]) * 2
+            mat[ layer_name_to_matrix_index(layer_a, nodes), layer_name_to_matrix_index(layer_b, nodes)] = n_possible_edges
 
+    mat =  (edge_count_mat / mat).round(decimals=2)
+
+    return mat
 
 def layer_name_to_matrix_index(layer_name, nodes):
     mapping = {}
@@ -160,6 +176,9 @@ def main():
     
     n_edges_mat = edge_count_matrix(nodes, edge_info, target_labels)
     plot_matrix_colour_map(n_edges_mat, f'results/{mouse}/effective_inference/n_edges_{repeat_num}', n_edges_mat.shape[0])
+
+    prop_edges_mat = proportion_matrix(nodes, n_edges_mat)
+    plot_matrix_colour_map(prop_edges_mat, f'results/{mouse}/effective_inference/proportion_edges_{repeat_num}', n_edges_mat.shape[0])
 
 if __name__ == '__main__':
     main()

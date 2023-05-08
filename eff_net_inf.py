@@ -1,17 +1,26 @@
 '''Effective network inference'''
-# usage: python3 eff_net_inf.py network_type_name num_spikes repeat_number target_index
+# usage: python3 eff_net_inf.py network_type_name num_spikes repeat_number target_index [local,cluster]
 # Reference: https://github.com/jlizier/jidt
 
 '''
 NET_TYPE mouse2probe8 REPEAT_NUM 0:
-        MAX_NUM_SECOND_INTERVALS=3 for target 8, 37, 51. (waiting for target 51 result)
+        MAX_NUM_SECOND_INTERVALS=3 for target 8, 37, 51. =60 for all other targets.
+        MAX_NUM_SPIKES = 1000
         note: lost all logs for this repeat. accidentally overwrote. 
-        #but I did check over a few of them and they looked fine.
-        # and I have the job errors (which are empty)
+        but I did check over a few of them and they looked fine.
+        and I have the job errors (which are empty)
+        (60 targets)
+
 NET_TYPE mouse2probe8 REPEAT_NUM 1:
-        deleted. we don't need a bonferroni correction.
         MAX_NUM_SECOND_INTERVALS set to pos inf (i.e. ignored)
-        bonferroni correction added.
+        MAX_NUM_SPIKES = 3000
+        computation time limit: stops adding source intervals after (n_sources / 2) intervals have been added already.
+        (60 targets)
+
+NET_TYPE mouse2probe3 REPEAT_NUM 0
+        MAX_NUM_SECOND_INTERVALS set to pos inf (i.e. ignored)
+        MAX_NUM_SPIKES = 1500
+        (103 targets)
 '''
 
 '''
@@ -48,14 +57,16 @@ K_PERM = 20
 JITTERING_LEVEL = 2000
 
 # When MAX_NUM_SECOND_INTERVALS sources have 2 or more history intervals added into the conditioning set, the inference stops
-MAX_NUM_SECOND_INTERVALS = float('inf') #ignoring this limit.
+MAX_NUM_SECOND_INTERVALS = float('inf') 
+#ignoring the above limit. Instead, stop adding source intervals after (n_sources / 2) intervals have been added to the conditioning set already.
+
 # Exclude target spikes beyond this number
 MAX_NUM_TARGET_SPIKES = int(num_spikes_string)
 # The spikes file with the below name is expected to contain a single pickled Python list. This list contains numpy arrays. Each
 # numpy array contains the spike times of each candidate target.
 SPIKES_FILE_NAME = "data/spikes_LIF_" + net_type_name + ".pk"
-
-OUTPUT_FILE_PREFIX = "results/inferred_sources_target_2_" + net_type_name + "_" + num_spikes_string + "_" + repeat_num_string + "_" + target_index_string
+OUTPUT_PATH = f'results/{net_type_name}/repeat_{repeat_num_string}/'
+OUTPUT_FILE_PREFIX = 'inferred_sources_' + net_type_name + "_" + num_spikes_string + "_" + repeat_num_string + target_index_string
 LOG_FILE_NAME = "logs/" + net_type_name + "_" + num_spikes_string + "_" + repeat_num_string +  "_" + target_index_string + ".log"
 
 log = open(LOG_FILE_NAME, "w")
@@ -103,16 +114,20 @@ def main():
     #take the first MAX_NUM_TARGET_SPIKES target spikes.
     if MAX_NUM_TARGET_SPIKES < len(spikes[target_index]):
         spikes[target_index] = spikes[target_index][:MAX_NUM_TARGET_SPIKES]
-    #all other spikes need to be within time window of the above.
+    #take all other spikes within time window of the above.
+    n_skipped_sources = 0
     for source_index in range(0, len(spikes)):
            if source_index == target_index:
                   continue
            spikes[source_index] = spikes[source_index][
                   (spikes[source_index] > spikes[target_index][0]) & (spikes[source_index] < spikes[target_index][-1])
                   ]
+           if len(spikes[source_index]) < 10:
+                  n_skipped_sources += 1
     print("Number of target spikes: ", len(spikes[target_index])) #can be [0, MAX_NUM_TARGET_SPIKES]
     print(f"First target spike: {spikes[target_index][0]}")
     print(f"Last target spike: {spikes[target_index][-1]}")
+    print(f"Will be skipping {n_skipped_sources} sources.")
 
     # First determine the correct target embedding
     target_embedding_set = [1]
@@ -153,6 +168,7 @@ def main():
     surrogate_vals_at_each_round = []
     print("**** Adding Sources ****\n")
     num_twos = 0
+    num_sig_intervals = 0
     while still_significant:
             print("Current conditioning set:")
             for key in cond_set.keys():
@@ -163,13 +179,11 @@ def main():
             debiased_TE_vals = -1 * np.ones(next_interval_for_each_candidate.shape[0]) #for each source right now.
             surrogate_vals = -1 * np.ones((next_interval_for_each_candidate.shape[0], NUM_SURROGATES_PER_TE_VAL)) #for each source right now
             debiased_surrogate_vals = 1 - np.ones((next_interval_for_each_candidate.shape[0], NUM_SURROGATES_PER_TE_VAL)) #for each source right now
-            n_skipped_sources = 0
             #iterate through every source
             for i in range(next_interval_for_each_candidate.shape[0]):
                     #if this source has less than 10 spikes, skip.
                     if len(spikes[next_interval_for_each_candidate[i, 0]]) < 10:
                             print(f"Skipping source {next_interval_for_each_candidate[i, 0]} since it has less than 10 spikes.")
-                            n_skipped_sources += 1
                             continue
                     teCalc.startAddObservations()
                     #check TE from one source interval to target state, in context of (embedded target past + conditioning set intervals)
@@ -218,8 +232,14 @@ def main():
                     if num_twos >= MAX_NUM_SECOND_INTERVALS:
                             print("\nMaximum number of second intervals reached\n\n")
                             still_significant = False
+                    #----- Instead of MAX_NUM_SECOND_INTERVALS, use total num intervals added to limit computation time -----
+                    if num_sig_intervals >= len(spikes) / 2:
+                           print("\nMaximum number of intervals reached.\n\n")
+                           still_significant = False
+                    #-----------------------------------------------------------
 
                     next_interval_for_each_candidate[index_of_max_candidate, 1] += 1
+                    num_sig_intervals += 1
                     
                     print("\nCandidate added\n\n")
             else:
@@ -275,11 +295,12 @@ def main():
             print("source", key, "intervals", cond_set[key])
     print("\nTrue Sources: unavailable.")
 
-    output_file = open(OUTPUT_FILE_PREFIX + ".pk", 'wb')
+    output_file = open(OUTPUT_PATH + OUTPUT_FILE_PREFIX + ".pk", 'wb')
     pickle.dump(cond_set, output_file)
     pickle.dump(surrogate_vals_at_each_round, output_file)
     pickle.dump(TE_vals_at_each_round, output_file)
     output_file.close()
+    log.close()
 
 if __name__ == '__main__':
     main()
