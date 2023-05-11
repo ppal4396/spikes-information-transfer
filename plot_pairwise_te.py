@@ -5,10 +5,11 @@ import sys
 import glob
 
 #TODO: show in plots when no cells were recorded in the first place in certain layers.
+#TODO: add thalamus compatability. (just check over again)
 
 if __name__ == '__main__':
-    mouse = 'mouse2probe6'
-    n_layers = 4
+    mouse = 'mouse2probe3_to_mouse2probe7'
+    n_layers = 6
 
 def plot_matrix_colour_map(mat, path, n_layers):
     ''' plot matrices as colour map. left axis is source, bottom axis is dest.
@@ -19,7 +20,11 @@ def plot_matrix_colour_map(mat, path, n_layers):
     blues = mpl.colormaps['Blues']
     fig, axs = plt.subplots(1, 1, figsize=(4, 3),
                             constrained_layout=True, squeeze=False)
-    layer_names = ['Layer 23', 'Layer 4', 'Layer 5', 'Layer 6']
+    if n_layers == 4:
+        layer_names = ['Layer 23', 'Layer 4', 'Layer 5', 'Layer 6']
+    elif n_layers == 6:
+        layer_names = ['Layer 23', 'Layer 4', 'Layer 5', 'Layer 6', 'Thalamus co', 'Thalamus sh']
+
     for [ax, cmap] in zip(axs.flat, [blues]):
         psm = ax.imshow(mat, cmap=cmap, snap = True, rasterized=True, vmin=vmin, vmax=vmax)
         fig.colorbar(psm, ax=ax)
@@ -44,19 +49,32 @@ def plot_matrix_colour_map(mat, path, n_layers):
 
 def main():
 
+    layer_name_idx_mapping = {
+        'Layer 23': 0,
+        'Layer 4': 1,
+        'Layer 5': 2,
+        'Layer 6': 3,
+        'Thalamus co': 4,
+        'Thalamus sh': 5,
+    }
+
     # count number of sig links
     sig_links_mat = np.zeros((n_layers,n_layers))
+
     with open(f'results/{mouse}/pairwise_summary.csv') as f:
         # header = f.readline()
         lines = f.readlines()
-    i = 0
-    j = 0
+
     for line in lines:
-        sig_links_mat[i, j] = int(line.strip().split(',')[4])
-        j += 1
-        if j == n_layers:
-            j = 0
-            i += 1
+        try:
+            source_name = line.split(',')[0]
+            dest_name = line.split(',')[1]
+            source_idx = layer_name_idx_mapping[source_name]
+            dest_idx = layer_name_idx_mapping[dest_name]
+            sig_links_mat[source_idx, dest_idx] = int(line.strip().split(',')[4])
+        except:
+            print(f"error while reading line:\n {line}\n in file pairwise_summary.csv. Stopping.")
+            sys.exit()
 
     # count number of links and average TE rate + average TE per source spike
     # + average TE per dest spike.
@@ -68,30 +86,32 @@ def main():
     avg_te_per_dest_spike_mat = np.zeros((n_layers, n_layers))
 
 
-    for filename in glob.glob(f'results/{mouse}/Layer*.csv'):
-        source = filename.split('Layer ')[1][:2]
-        if source != '23':
-            source_idx = int(source[:1]) - 3
-        else:
-            source_idx = 0
-        dest = filename.split('Layer ')[2][:2]
-        if dest != '23':
-            dest_idx = int(dest[:1]) - 3
-        else:
-            dest_idx = 0
-        with open(filename) as f:
+    pathnames = glob.glob(f'results/{mouse}/Layer*.csv') + glob.glob(f'results/{mouse}/Thalamus*.csv')
+
+    for pathname in pathnames:
+        filename = pathname.split('/')[-1]
+        source_name = filename.split('_to_')[0]
+        dest_name = filename.split('_to_')[1].rstrip('.csv')
+        source_idx = layer_name_idx_mapping[source_name]
+        dest_idx = layer_name_idx_mapping[dest_name]
+
+        with open(pathname) as f:
             lines = f.readlines()
             n_links = len(lines)
         n_links_mat[source_idx, dest_idx] = n_links
 
         for line_no, line in enumerate(lines):
-            te = float(line.split(',')[3]) #corrected te, i.e. after minusing surrogate mean
-            te_per_src_spk = float(line.split(',')[7])
-            te_per_dest_spk = float(line.split(',')[9])
-            sig = float(line.split(',')[4].strip())
+            try:
+                te = float(line.split(',')[3]) #corrected te, i.e. after minusing surrogate mean
+                te_per_src_spk = float(line.split(',')[7])
+                te_per_dest_spk = float(line.split(',')[9])
+                sig = float(line.split(',')[4].strip())
+            except:
+                print(f"error while leading line {line_no} in file {pathname}. Stopping.")
+                sys.exit()
             if sig < 0.05 and te < 0:
                 print("Negative 'significant' transfer found.")
-                print(filename, f"line {line_no+1}")
+                print(pathname, f"line {line_no+1}")
                 print(line, '\n')
             if sig > 0.05 or te < 0:
                 te = 0
@@ -131,7 +151,7 @@ def main():
             j += 1
         i += 1
 
-    path = 'results/{mouse}/'
+    path = f'results/{mouse}/'
     plot_matrix_colour_map(n_links_mat, path+'n_links', n_layers)
     plot_matrix_colour_map(sig_links_mat, path+'n_sig_links', n_layers)
     plot_matrix_colour_map(sig_links_mat_normalised, path+'proportion_sig_links', n_layers)

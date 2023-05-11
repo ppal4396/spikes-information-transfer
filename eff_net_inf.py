@@ -1,5 +1,5 @@
 '''Effective network inference'''
-# usage: python3 eff_net_inf.py network_type_name num_spikes repeat_number target_index [local,cluster]
+# usage: python3 eff_net_inf.py network_type_name num_spikes repeat_number target_index max_intervals [local,cluster]
 # Reference: https://github.com/jlizier/jidt
 
 '''
@@ -16,11 +16,20 @@ NET_TYPE mouse2probe8 REPEAT_NUM 1:
         MAX_NUM_SPIKES = 3000
         computation time limit: stops adding source intervals after (n_sources / 2) intervals have been added already.
         (60 targets)
-
+        (on cluster, ran with repeat-num = 0.
+        Restarting 19 walled jobs.
+        (jobs *88 to *70)
+        
 NET_TYPE mouse2probe3 REPEAT_NUM 0
         MAX_NUM_SECOND_INTERVALS set to pos inf (i.e. ignored)
         MAX_NUM_SPIKES = 1500
-        (103 targets)
+        (104 targets)
+        email brandon + mac after this finishes.
+        restarted 29 targets with MAX_INTERVALS set to whatever they got up to 
+        in 60 hours minus 1. Letting them run for 70 hours.
+        reruns that completed in < 3 hours: 21, 45, 4, 55, 76, 84, 97 even though they exceeded 60 hours before.
+        #(ultimately just report targets that did get limited)
+        #but its weird that between runs can go from adding 20 intervals to 1 interval.
 '''
 
 '''
@@ -42,7 +51,8 @@ net_type_name = sys.argv[1] #mouse probe
 num_spikes_string = sys.argv[2]
 repeat_num_string = sys.argv[3]
 target_index_string = sys.argv[4]
-cluster = sys.argv[5] == 'cluster'
+max_intervals_string = sys.argv[5]
+cluster = sys.argv[6] == 'cluster'
 
 NUM_SURROGATES_PER_TE_VAL = 100
 P_LEVEL = 0.05
@@ -54,19 +64,19 @@ SURROGATE_NUM_SAMPLES_MULTIPLIER = 5.0
 # The number of nearest neighbours to consider when using the local permutation method to create surrogates
 K_PERM = 20
 # The level of the noise to add to the random sample points used in creating surrogates 
-JITTERING_LEVEL = 2000
+# JITTERING_LEVEL = 2000
 
 # When MAX_NUM_SECOND_INTERVALS sources have 2 or more history intervals added into the conditioning set, the inference stops
 MAX_NUM_SECOND_INTERVALS = float('inf') 
-#ignoring the above limit. Instead, stop adding source intervals after (n_sources / 2) intervals have been added to the conditioning set already.
-
+#ignoring the above limit. Instead, stop adding source intervals after MAX_INTERVALS intervals have been added to the conditioning set already.
+MAX_INTERVALS = int(max_intervals_string)
 # Exclude target spikes beyond this number
 MAX_NUM_TARGET_SPIKES = int(num_spikes_string)
 # The spikes file with the below name is expected to contain a single pickled Python list. This list contains numpy arrays. Each
 # numpy array contains the spike times of each candidate target.
 SPIKES_FILE_NAME = "data/spikes_LIF_" + net_type_name + ".pk"
 OUTPUT_PATH = f'results/{net_type_name}/repeat_{repeat_num_string}/'
-OUTPUT_FILE_PREFIX = 'inferred_sources_' + net_type_name + "_" + num_spikes_string + "_" + repeat_num_string + target_index_string
+OUTPUT_FILE_PREFIX = 'inferred_sources_' + net_type_name + "_" + num_spikes_string + "_" + repeat_num_string + "_" + target_index_string
 LOG_FILE_NAME = "logs/" + net_type_name + "_" + num_spikes_string + "_" + repeat_num_string +  "_" + target_index_string + ".log"
 
 log = open(LOG_FILE_NAME, "w")
@@ -108,7 +118,7 @@ def main():
     teCalc.setProperty("SURROGATE_NUM_SAMPLES_MULTIPLIER", str(SURROGATE_NUM_SAMPLES_MULTIPLIER))
     teCalc.setProperty("K_PERM", str(K_PERM))
     teCalc.setProperty("DO_JITTERED_SAMPLING", "false")
-    teCalc.setProperty("JITTERED_SAMPLING_NOISE_LEVEL", str(JITTERING_LEVEL))
+#     teCalc.setProperty("JITTERED_SAMPLING_NOISE_LEVEL", str(JITTERING_LEVEL))
 
     spikes = pickle.load(open(SPIKES_FILE_NAME, 'rb'))
     #take the first MAX_NUM_TARGET_SPIKES target spikes.
@@ -233,8 +243,8 @@ def main():
                             print("\nMaximum number of second intervals reached\n\n")
                             still_significant = False
                     #----- Instead of MAX_NUM_SECOND_INTERVALS, use total num intervals added to limit computation time -----
-                    if num_sig_intervals >= len(spikes) / 2:
-                           print("\nMaximum number of intervals reached.\n\n")
+                    if num_sig_intervals >= MAX_INTERVALS:
+                           print(f"\nMaximum number of intervals {MAX_INTERVALS} reached.\n\n")
                            still_significant = False
                     #-----------------------------------------------------------
 

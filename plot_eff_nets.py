@@ -7,6 +7,8 @@ import sys
 from math import sqrt
 from plot_results import plot_matrix_colour_map
 
+#TODO add per spike calculations to TE.
+
 # ---- config -----
 mouse = 'mouse2probe8'
 repeat_num = 0
