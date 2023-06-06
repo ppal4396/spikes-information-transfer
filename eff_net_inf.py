@@ -2,42 +2,13 @@
 # usage: python3 eff_net_inf.py network_type_name num_spikes repeat_number target_index max_intervals [local,cluster]
 # Reference: https://github.com/jlizier/jidt
 
-'''
-NET_TYPE mouse2probe8 REPEAT_NUM 0:
-        MAX_NUM_SECOND_INTERVALS=3 for target 8, 37, 51. =60 for all other targets.
-        MAX_NUM_SPIKES = 1000
-        note: lost all logs for this repeat. accidentally overwrote. 
-        but I did check over a few of them and they looked fine.
-        and I have the job errors (which are empty)
-        (60 targets)
+# COMPLETED INFERENCES:
+#     - within v1: mouse2probe8, mouse2probe3, mouse1probe3.
+# INCOMPLETE INFERENCES:    
+#     - between v1 probes; mouse1probe3 & mouse1probe7, mouse1probe4 & mouse1probe8
+# NOT STARTED:    
+#     - v1 and thalamus; mouse2probe3 & mouse2probe7
 
-NET_TYPE mouse2probe8 REPEAT_NUM 1:
-        MAX_NUM_SECOND_INTERVALS set to pos inf (i.e. ignored)
-        MAX_NUM_SPIKES = 3000
-        computation time limit: stops adding source intervals after (n_sources / 2) intervals have been added already.
-        (60 targets)
-        (on cluster, ran with repeat-num = 0.
-        Restarting 19 walled jobs.
-        (jobs *88 to *70)
-        
-NET_TYPE mouse2probe3 REPEAT_NUM 0
-        MAX_NUM_SECOND_INTERVALS set to pos inf (i.e. ignored)
-        MAX_NUM_SPIKES = 1500
-        (104 targets)
-        email brandon + mac after this finishes.
-        restarted 29 targets with MAX_INTERVALS set to whatever they got up to 
-        in 60 hours minus 1. Letting them run for 70 hours.
-        reruns that completed in < 3 hours: 21, 45, 4, 55, 76, 84, 97 even though they exceeded 60 hours before.
-        #(ultimately just report targets that did get limited)
-        #but its weird that between runs can go from adding 20 intervals to 1 interval.
-'''
-
-'''
-TODO
-    - within v1 first: mouse2probe8, mouse2probe3, mouse1probe3. Other mouse1 probes are pretty undersampled.
-    - between v1 probes next; mouse1probe3 & mouse1probe7
-    - v1 and thalamus last. mouse2probe3 & mouse2probe7
-'''
 from jpype import *
 import random
 import math
@@ -47,7 +18,7 @@ import pickle
 import copy
 import sys
 
-net_type_name = sys.argv[1] #mouse probe
+net_type_name = sys.argv[1] #mouse probe(s)
 num_spikes_string = sys.argv[2]
 repeat_num_string = sys.argv[3]
 target_index_string = sys.argv[4]

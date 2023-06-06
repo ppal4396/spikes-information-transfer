@@ -5,31 +5,31 @@ import random
 import numpy as np
 import sys
 
-'''DONE: 
-MOUSE 2(Waksman)
-- probe 8 = right primary visual cortex (VISp)
-        WITH
-              probe 6 = right anterior visual area (VISa)
+# ==============================================================================
+#                          Completed Associations:
+#  
+# MOUSE 2(Waksman)
+# - probe 8 = right primary visual cortex (VISp)
+#         WITH
+#               probe 6 = right anterior visual area (VISa)
 
-- probe 3 = left primary visual cortex (VISp)
-        WITH
-            probe 7 = left rostrolateral visual area (VISrl)
-            and LGd-sh (dorsal part of the lateral geniculate complex, shell)
-            and LGd-co (core)
-'''
+# - probe 3 = left primary visual cortex (VISp)
+#         WITH
+#             probe 7 = left rostrolateral visual area (VISrl)
+#             and LGd-sh (dorsal part of the lateral geniculate complex, shell)
 
-'''DONE: 
-MOUSE 1 (Krebs)
-- probes 3 = right primary visual cortex (VISp)
-        WITH
-              probe 7 = right primary visual cortex (VISp)
-            note asymmetry, could reflect columns to be homogenous processing
+# MOUSE 1 (Krebs)
+# - probes 3 = right primary visual cortex (VISp)
+#         WITH
+#               probe 7 = right primary visual cortex (VISp)
+#             note asymmetry, could reflect columns to be homogenous processing
 
-- probes 4 = left primary visual cortex (VISp)
-        WITH
-              probe 8 = left primary visual cortex (VISp)
-              only some connectivity.
-'''
+# - probes 4 = left primary visual cortex (VISp)
+#         WITH
+#               probe 8 = left primary visual cortex (VISp)
+#               only some connectivity.
+
+# ==============================================================================
 
 # =========================== config
 

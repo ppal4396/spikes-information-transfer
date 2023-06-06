@@ -4,12 +4,15 @@ import numpy as np
 import sys
 import glob
 
-#TODO: show in plots when no cells were recorded in the first place in certain layers.
-#TODO: add thalamus compatability. (just check over again)
-
 if __name__ == '__main__':
-    mouse = 'mouse2probe3_to_mouse2probe7'
-    n_layers = 6
+    mouse = 'mouse2probe8'
+    n_layers = 4 #6 for probe including thalamus.
+
+def calculate_average_te_per_spike(result, obs_len, n_spikes):
+    '''Average TE per spike: multiply result by length of 
+    time in observation window then divide by number of spikes'''
+    avg_te_per_spike = (result * obs_len) / n_spikes
+    return avg_te_per_spike
 
 def plot_matrix_colour_map(mat, path, n_layers):
     ''' plot matrices as colour map. left axis is source, bottom axis is dest.
@@ -86,7 +89,11 @@ def main():
     avg_te_per_dest_spike_mat = np.zeros((n_layers, n_layers))
 
 
-    pathnames = glob.glob(f'results/{mouse}/Layer*.csv') + glob.glob(f'results/{mouse}/Thalamus*.csv')
+    pathnames = glob.glob(f'results/{mouse}/Layer*.csv')
+    if n_layers > 4:
+        pathnames += glob.glob(f'results/{mouse}/Thalamus*.csv')
+
+    average_window_length_whole_mouse = 0
 
     for pathname in pathnames:
         filename = pathname.split('/')[-1]
@@ -103,9 +110,17 @@ def main():
         for line_no, line in enumerate(lines):
             try:
                 te = float(line.split(',')[3]) #corrected te, i.e. after minusing surrogate mean
-                te_per_src_spk = float(line.split(',')[7])
-                te_per_dest_spk = float(line.split(',')[9])
                 sig = float(line.split(',')[4].strip())
+
+                #original script does not use corrected te to calculate per src/per dest.
+                window_length = float(line.split(',')[10])
+                n_source_spikes = float(line.split(',')[6])
+                te_per_src_spk = calculate_average_te_per_spike(te, window_length, n_source_spikes)
+                n_dest_spikes = float(line.split(',')[8])
+                te_per_dest_spk = calculate_average_te_per_spike(te, window_length, n_dest_spikes)
+                
+                average_window_length_whole_mouse += window_length
+
             except:
                 print(f"error while leading line {line_no} in file {pathname}. Stopping.")
                 sys.exit()
@@ -120,24 +135,20 @@ def main():
             avg_te_rate_mat[source_idx, dest_idx] += te
             avg_te_per_source_spike_mat[source_idx, dest_idx] += te_per_src_spk
             avg_te_per_dest_spike_mat[source_idx, dest_idx] += te_per_dest_spk
+    
+    average_window_length_whole_mouse = average_window_length_whole_mouse / n_links_mat.sum()
 
     i = 0
     while i < n_layers:
         j = 0
         while j < n_layers:
             avg_te_rate_mat[i,j] = round(avg_te_rate_mat[i,j] / n_links_mat[i,j], 2)
-            
-            #note: for per spike, only using sig links in average.
-            if not sig_links_mat[i,j]:
-                avg_te_per_source_spike_mat[i,j] = 0
-                avg_te_per_dest_spike_mat[i,j] = 0
-            else:
-                avg_te_per_source_spike_mat[i,j] = round(
-                    avg_te_per_source_spike_mat[i,j] / sig_links_mat[i,j], 2)
 
-                #note: for per spike, only using sig links in average.
-                avg_te_per_dest_spike_mat[i,j] = round(
-                    avg_te_per_dest_spike_mat[i,j] / sig_links_mat[i,j], 2)
+            avg_te_per_source_spike_mat[i,j] = round(
+                avg_te_per_source_spike_mat[i,j] / n_links_mat[i,j], 3)
+
+            avg_te_per_dest_spike_mat[i,j] = round(
+                avg_te_per_dest_spike_mat[i,j] / n_links_mat[i,j], 2)
             j+=1
         i+=1
 
@@ -158,6 +169,8 @@ def main():
     plot_matrix_colour_map(avg_te_rate_mat, path+'avg_te_rate', n_layers)
     plot_matrix_colour_map(avg_te_per_source_spike_mat, path+'avg_te_per_source', n_layers)
     plot_matrix_colour_map(avg_te_per_dest_spike_mat, path+'avg_te_per_dest', n_layers)
+
+    print(f"average window length of observation in whole probe: {average_window_length_whole_mouse/60:.2f} min")
 
 if __name__ == '__main__':
     main()
