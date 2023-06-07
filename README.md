@@ -25,7 +25,7 @@ our dataset as implemented by [jidt](https://github.com/jlizier/jidt/blob/master
 
 ## Effective network inference
 
-- `eff_net_inf.py` contains transfer estimation inside an algorithm for effective
+- `eff_net_inf.py` contains transfer entropy estimation inside an algorithm for effective
 network inference as implemented by [jidt](https://github.com/jlizier/jidt/blob/master/demos/python/EffectiveNetworkInference/spiking/net_inf.py).
 - `plot_eff_nets.py` contains results post-processing and plotting.
 

@@ -2,18 +2,6 @@
 continuous-time TE estimator'''
 # Reference: https://github.com/jlizier/jidt
 
-#TODO:
-    #do same time for both association directions + when looking in the same area in different probes.
-    # run again with DEST_PAST_INTERVALS set to 10 embeddings? Or verify that 2 is a good choice.
-
-'''
-DONE
-all probes:
-    low bound 500 takes too long.
-    did exact NUM_SPIKES destination spikes on cluster, see dataset description for different values.
-        completes < 40 hrs, with 100 surrogates.
-'''
-
 from jpype import JPackage, startJVM, JArray, JDouble, getDefaultJVMPath
 
 import random
